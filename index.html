@@ -985,61 +985,37 @@
     dbg.scrollTop = dbg.scrollHeight;
   }
 
-  let recorder=null,chunks=[],recStream=null;
-  let recStartTime=0,stepEvents=[];
+  let recWs=null,recStartTime=0;
   if (RECORD_VIDEO) {
-    logD('RECORD_VIDEO is enabled. Injecting Start button.', '#fca5a5');
-    await new Promise(resolve => {
-       const startBtn = document.createElement('button');
-       startBtn.textContent = '🎥 Start Recording Replay';
-       Object.assign(startBtn.style, {
-         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-         padding: '20px 40px', fontSize: '24px', fontWeight: 'bold', background: '#ff4444', color: '#fff',
-         border: 'none', borderRadius: '12px', cursor: 'pointer', zIndex: '999999',
-         boxShadow: '0 10px 25px rgba(255,68,68,0.4)', transition: 'transform 0.2s'
-       });
-       startBtn.onmouseenter=()=>startBtn.style.transform='translate(-50%, -50%) scale(1.05)';
-       startBtn.onmouseleave=()=>startBtn.style.transform='translate(-50%, -50%) scale(1)';
-       startBtn.onclick = async () => {
-         startBtn.textContent = 'Requesting Screen...';
-         logD('Start button clicked. Calling getDisplayMedia...', '#fca5a5');
-         try {
-           recStream=await navigator.mediaDevices.getDisplayMedia({
-             video: true,
-             audio: false,
-             selfBrowserSurface: 'include',
-             surfaceSwitching: 'include'
-           });
-           logD('Screen selected. Tracks: '+recStream.getTracks().length, '#34d399');
-           const mTypes=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm;codecs=h264','video/webm','video/mp4'];
-           const mType=mTypes.find(t=>MediaRecorder.isTypeSupported(t))||'';
-           logD('MIME type chosen: '+(mType||'default fallback'), '#34d399');
-           recorder=new MediaRecorder(recStream,mType?{mimeType:mType}:{});
-           recorder.ondataavailable=e=>{
-             if(e.data.size>0){
-               chunks.push(e.data);
-               logD('Chunk available: '+e.data.size+' bytes', '#a78bfa');
-             } else {
-               logD('Empty chunk received.', '#ef4444');
-             }
-           };
-           recorder.start();
-           recStartTime=Date.now();
-           logD('Recording STARTED.', '#00ff88');
-           console.log('%c🔴 Recording!','color:#ff4444;font-size:14px;font-weight:bold;');
-           startBtn.remove();
-           await slp(500);
-           resolve();
-         } catch(e) {
-           logD('getDisplayMedia failed: '+e.message, '#ef4444');
-           console.warn('⚠️ Recording skipped:',e.message);
-           startBtn.remove();
-           resolve();
-         }
-       };
-       document.body.appendChild(startBtn);
-       console.log('%c🎥 Waiting for click to bypass browser security...','color:#fcd34d;font-size:14px;font-weight:bold;');
-    });
+    logD('RECORD_VIDEO is enabled. Connecting to record server...', '#fca5a5');
+    try {
+      recWs = new WebSocket('ws://localhost:3001');
+      await new Promise((resolve, reject) => {
+        recWs.onopen = () => {
+          logD('Connected to record server.', '#34d399');
+          recWs.send(JSON.stringify({type:'start'}));
+          recStartTime = Date.now();
+          logD('Recording STARTED (external ffmpeg).', '#00ff88');
+          console.log('%c🔴 Recording via ffmpeg!','color:#ff4444;font-size:14px;font-weight:bold;');
+          resolve();
+        };
+        recWs.onerror = (e) => {
+          logD('WebSocket error — is record-server.js running? (npm run record)', '#ef4444');
+          console.warn('⚠️ Recording skipped: Could not connect to record server. Run: npm run record');
+          recWs = null;
+          resolve();
+        };
+        setTimeout(() => { if(recWs?.readyState !== 1) { recWs = null; resolve(); } }, 3000);
+      });
+    } catch(e) {
+      logD('Recording connection failed: '+e.message, '#ef4444');
+      recWs = null;
+    }
+  }
+  function recStep(name) {
+    if(recWs && recWs.readyState === 1) {
+      recWs.send(JSON.stringify({type:'step', name:name, timeMs:Date.now()-recStartTime}));
+    }
   }
   function c2s(cx2,cy2){
     const el=document.querySelector('canvas.graph-canvas-container')||document.querySelector('canvas#graph-canvas')||document.querySelector('canvas');
@@ -1273,7 +1249,7 @@
   for(const nd of NODES){
     if(window.__replayStop)break;step++;
     log(step,total,'➕ '+nd.title+' ('+nd.type+')');
-    if(EXPORT_XML&&RECORD_VIDEO) stepEvents.push({name:'Node: '+nd.title, timeMs:Date.now()-recStartTime});
+    recStep('Node: '+nd.title);
     const ncx=nd.pos[0]+nd.size[0]/2,ncy=nd.pos[1]+nd.size[1]/2;
     if(USE_CAMERA_PAN) await panTo(ncx,ncy,500);
     const sp=c2s(ncx,ncy);await moveTo(sp.x,sp.y,500);await slp(200);
@@ -1327,7 +1303,7 @@
       const sn=app.graph.getNodeById(refs[lk.srcId]),tn=app.graph.getNodeById(refs[lk.tgtId]);
       if(!sn||!tn)continue;
       log(step,total, '🔗 '+(sn.title||sn.type)+'['+lk.srcSlot+'] → '+(tn.title||tn.type)+'['+lk.tgtSlot+']');
-      if(EXPORT_XML&&RECORD_VIDEO) stepEvents.push({name:'Link: '+sn.title+' -> '+tn.title, timeMs:Date.now()-recStartTime});
+      recStep('Link: '+sn.title+' -> '+tn.title);
       const midX=(sn.pos[0]+tn.pos[0])/2,midY=(sn.pos[1]+tn.pos[1])/2;
       if(USE_CAMERA_PAN) await panTo(midX,midY,400);
       const sp2=new Float32Array(2),tp2=new Float32Array(2);
@@ -1386,113 +1362,42 @@
   console.log('%c✅ Replay complete! '+NODES.length+' nodes, '+LINKS.length+' connections.','color:#00ff88;font-size:14px;font-weight:bold;');
   cur.style.transition='opacity .5s';cur.style.opacity='0';await slp(600);
   cur.remove();ov.remove();sty.remove();
-  if(recorder&&recorder.state!=='inactive'){
-    await new Promise(resolve=>{recorder.onstop=async()=>{
-      let blob=new Blob(chunks,{type:'video/webm'});
-      const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
-      let filename='comfyui-replay-'+ts;
-      if(CONVERT_TO_MP4){
-        try{
-          console.log('%c🔄 Converting to MP4...','color:#fcd34d;font-size:14px;font-weight:bold;');
-          logD('Downloading FFmpeg WASM module...', '#fcd34d');
-          const {FFmpeg}=await import('https://esm.sh/@ffmpeg/ffmpeg@0.12.10');
-          const {fetchFile}=await import('https://esm.sh/@ffmpeg/util@0.12.1');
-          const ffmpeg=new FFmpeg();
-          
-          ffmpeg.on('log', ({ message }) => {
-            console.log('%cFFmpeg: ' + message, 'color:#888;');
-          });
+  if(recWs && recWs.readyState === 1){
+    logD('Sending stop to record server...', '#fca5a5');
+    recWs.send(JSON.stringify({type:'stop'}));
+    await new Promise(resolve => {
+      recWs.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data);
+          if(msg.type === 'done') {
+            logD('Recording saved by server: '+msg.file, '#00ff88');
+            if(msg.xml) logD('FCPXML saved: '+msg.xml, '#fcd34d');
+            console.log('%c🎥 Recording saved! Check recordings/ folder.','color:#00ff88;font-size:14px;font-weight:bold;');
+            if(msg.file) console.log('%c   Video: '+msg.file,'color:#00d4ff;');
+            if(msg.xml) console.log('%c   XML:   '+msg.xml,'color:#ff9900;');
 
-          await ffmpeg.load({
-            coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
-            wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm'
-          });
-          
-          logD('FFmpeg loaded. Writing WebM to virtual FS...', '#fcd34d');
-          await ffmpeg.writeFile('input.webm',await fetchFile(blob));
-          
-          logD('Transcoding WebM -> MP4 (this may take a minute)...', '#fcd34d');
-          await ffmpeg.exec(['-i','input.webm','-c:v','libx264','-preset','fast','-crf','23','-pix_fmt','yuv420p',filename+'.mp4']);
-          
-          const data=await ffmpeg.readFile(filename+'.mp4');
-          blob=new Blob([data.buffer],{type:'video/mp4'});
-          filename+='.mp4';
-          
-          logD('MP4 conversion complete!', '#34d399');
-          console.log('%c✅ MP4 conversion complete!','color:#00ff88;font-size:14px;font-weight:bold;');
-        }catch(e){
-          logD('⚠️ MP4 conversion failed: ' + e.message, '#ef4444');
-          console.warn('⚠️ MP4 conversion failed, saving WebM:',e.message);
-          filename+='.webm';
-        }
-      }else{filename+='.webm';}
-      
-      logD(\`Replay closed. Recorder chunks: \${chunks.length}. Blob size: \${blob.size} bytes.\`, '#fcd34d');
-      if (blob.size === 0) logD('CRITICAL: Blob size is 0 bytes! Screen stream failed.', '#ef4444');
-      console.log('%c💾 Saving files...','color:#fcd34d;font-size:14px;font-weight:bold;');
-      
-      const ovly = document.createElement('div');
-      Object.assign(ovly.style, {
-        position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)',
-        background:'#1e1e1e', padding:'30px', borderRadius:'16px', boxShadow:'0 20px 50px rgba(0,0,0,0.8)',
-        zIndex:'999999', textAlign:'center', color:'#fff', fontFamily:'sans-serif', border:'1px solid #333'
-      });
-      ovly.innerHTML = '<h2 style="margin:0 0 20px 0;color:#00ff88;">✅ Replay Complete!</h2><div id="__rlinks" style="display:flex;gap:15px;justify-content:center;"></div><button id="__rclose" style="margin-top:20px;background:transparent;border:none;color:#aaa;cursor:pointer;text-decoration:underline;">Close Overlay</button>';
-      document.body.appendChild(ovly);
-      document.getElementById('__rclose').onclick = () => ovly.remove();
-      const rlinks = document.getElementById('__rlinks');
-
-      function adl(blb, fn, txt, col) {
-         const a = document.createElement('a');
-         a.href = URL.createObjectURL(blb); a.download = fn; a.textContent = txt;
-         Object.assign(a.style, {
-           background:col, color:'#fff', padding:'12px 20px', borderRadius:'8px',
-           textDecoration:'none', fontWeight:'bold', fontSize:'14px', display:'inline-block', flex:'1'
-         });
-         rlinks.appendChild(a); return a;
-      }
-
-      let autoSaved = 0, expFiles = 1;
-
-      // Generate XML if requested
-      if(EXPORT_XML&&RECORD_VIDEO){
-        expFiles = 2;
-        try{
-          logD('Generating XML...', '#fcd34d');
-          const fps=30;const durationFrames=Math.round(((Date.now()-recStartTime)/1000)*fps);
-          let clipsXml='',fileDefAdded=false;
-          for(let i=0;i<stepEvents.length;i++){
-             const e=stepEvents[i];
-             const nxt=i<stepEvents.length-1?stepEvents[i+1].timeMs:(durationFrames*(1000/fps));
-             const startFrame=Math.round((e.timeMs/1000)*fps);
-             let endFrame=Math.round((nxt/1000)*fps);
-             if(endFrame<=startFrame)endFrame=startFrame+1;
-             if(endFrame>durationFrames)endFrame=durationFrames;
-             if(startFrame>=durationFrames)break;
-             const fileDef=fileDefAdded?'<file id="file-1"/>':\`<file id="file-1"><name>\${filename}</name><pathurl>file://localhost/\${filename}</pathurl><rate><timebase>\${fps}</timebase><ntsc>FALSE</ntsc></rate><duration>\${durationFrames}</duration><media><video><duration>\${durationFrames}</duration><samplecharacteristics><width>1920</width><height>1080</height></samplecharacteristics></video></media></file>\`;
-             fileDefAdded=true;
-             clipsXml+=\`\\n<clipitem id="clip-\${i}"><name>\${e.name}</name><duration>\${durationFrames}</duration><rate><timebase>\${fps}</timebase><ntsc>FALSE</ntsc></rate><start>\${startFrame}</start><end>\${endFrame}</end><in>\${startFrame}</in><out>\${endFrame}</out>\${fileDef}</clipitem>\`;
+            const ovly = document.createElement('div');
+            Object.assign(ovly.style, {
+              position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)',
+              background:'#1e1e1e', padding:'30px', borderRadius:'16px', boxShadow:'0 20px 50px rgba(0,0,0,0.8)',
+              zIndex:'999999', textAlign:'center', color:'#fff', fontFamily:'sans-serif', border:'1px solid #333'
+            });
+            let info = '<h2 style="margin:0 0 20px 0;color:#00ff88;">✅ Replay Complete!</h2>';
+            info += '<div style="font-size:14px;color:#00d4ff;margin-bottom:10px;">Files saved to recordings/ folder:</div>';
+            if(msg.file) info += '<div style="font-size:13px;color:#aaa;margin:4px 0;">🎬 '+msg.file+'</div>';
+            if(msg.xml) info += '<div style="font-size:13px;color:#aaa;margin:4px 0;">📋 '+msg.xml+'</div>';
+            info += '<button id="__rclose" style="margin-top:20px;background:transparent;border:none;color:#aaa;cursor:pointer;text-decoration:underline;">Close</button>';
+            ovly.innerHTML = info;
+            document.body.appendChild(ovly);
+            document.getElementById('__rclose').onclick = () => ovly.remove();
+            resolve();
           }
-          const xmlStr=\`<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE xmeml>
-<xmeml version="4"><project><name>Comfy Replay</name><children><sequence id="sequence-1"><name>Replay Sequence</name><duration>\${durationFrames}</duration><rate><timebase>\${fps}</timebase><ntsc>FALSE</ntsc></rate><media><video><track>\${clipsXml}</track></video></media></sequence></children></project></xmeml>\`;
-          const xmlBlob=new Blob([xmlStr],{type:'application/xml'});
-          const xmlName=filename.split('.')[0]+'.xml';
-          const xa = adl(xmlBlob, xmlName, '📥 Download XML', '#ff9900');
-          logD('XML UI element created. Triggering a.click()...', '#fcd34d');
-          xa.click(); // fallback auto-download
-        }catch(xe){console.error('XML Generation error:',xe); logD('XML Error: '+xe.message, '#ef4444');}
-      }
-
-      logD('Video UI element created. Triggering a.click()...', '#00d4ff');
-      const va = adl(blob, filename, '📥 Download Video', '#0099bb');
-      va.click(); // fallback auto-download
-      logD('Script execution flawlessly completed! 🏁', '#00ff88');
-
-      console.log('%c✅ File(s) downloaded to default folder!','color:#00ff88;font-size:14px;font-weight:bold;');
-      ovly.innerHTML += '<div style="margin-top:20px;font-size:14px;color:#00d4ff;font-weight:bold;">Check your default Browser Downloads folder,<br>or click the buttons above.</div>';
-      resolve();
-    }; recorder.stop();if(recStream)recStream.getTracks().forEach(t=>t.stop()); });}
+        } catch(e) { resolve(); }
+      };
+      setTimeout(() => { logD('Timeout waiting for server response.', '#ef4444'); resolve(); }, 15000);
+    });
+    recWs.close();
+  }
 })();
       `.trim();
     }
