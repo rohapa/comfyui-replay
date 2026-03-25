@@ -1,0 +1,2527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ComfyUI Replay Generator</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0f14;
+      --surface: #161921;
+      --surface2: #1e2230;
+      --border: #2a2f3e;
+      --accent: #00d4ff;
+      --accent2: #7c3aed;
+      --green: #00ff88;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --radius: 14px;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      margin: 0; padding: 0;
+    }
+
+    .app-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 100vh;
+      max-width: 1400px;
+      margin: 0 auto;
+      gap: 0;
+    }
+    .app-left {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 30px 80px;
+      overflow-y: auto;
+    }
+    .app-right {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      border-left: 1px solid var(--border);
+      background: var(--surface);
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .app-right-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--muted);
+      font-size: 14px;
+      text-align: center;
+      padding: 40px;
+    }
+    .app-right-empty .empty-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      display: block;
+      opacity: 0.4;
+    }
+
+    @media (max-width: 900px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+      }
+      .app-right {
+        position: relative;
+        height: auto;
+        border-left: none;
+        border-top: 1px solid var(--border);
+      }
+    }
+
+    /* ── Header ── */
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .logo-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+    h1 span { color: var(--accent); }
+    .subtitle { color: var(--muted); font-size: 15px; margin-top: 6px; }
+
+    /* ── Drop Zone ── */
+    .drop-zone {
+      width: 100%;
+      max-width: 640px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 60px 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      background: var(--surface);
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(0, 212, 255, 0.04);
+      box-shadow: 0 0 0 4px rgba(0, 212, 255, 0.08);
+    }
+    .drop-zone.drag-over { transform: scale(1.01); }
+    .drop-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      display: block;
+      transition: transform 0.2s;
+    }
+    .drop-zone:hover .drop-icon, .drop-zone.drag-over .drop-icon { transform: scale(1.1) translateY(-4px); }
+    .drop-title {
+      font-size: 18px; font-weight: 600; margin-bottom: 8px;
+    }
+    .drop-sub { color: var(--muted); font-size: 14px; }
+    .drop-sub strong { color: var(--accent); }
+
+    #file-input { display: none; }
+
+    /* ── Options ── */
+    .options {
+      width: 100%;
+      max-width: 640px;
+      margin-top: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+    }
+    .options-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .btn-example {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--muted);
+      cursor: pointer;
+      text-transform: none;
+      letter-spacing: 0;
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-example:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+    .option-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .option-row:last-child { border-bottom: none; }
+    .option-label { font-size: 14px; font-weight: 500; }
+    .option-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    input[type="number"], input[type="range"], input[type="password"] {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      outline: none;
+    }
+    input[type="number"] { width: 100px; }
+    input[type="password"] { width: 100%; max-width: 300px; }
+    input[type="number"]:focus, input[type="password"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+    }
+    input[type="range"] { padding: 0; width: 120px; accent-color: var(--accent); }
+
+    /* ── Image Zone ── */
+    .image-zone {
+      width: 100%; max-width: 640px;
+      margin-top: 20px; margin-bottom: 20px;
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 30px 20px;
+      text-align: center; cursor: pointer;
+      background: var(--surface);
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .image-zone:hover, .image-zone.drag-over { border-color: var(--accent); background: rgba(0, 212, 255, 0.04); }
+    #image-preview {
+      display: none; max-width: 100%; max-height: 250px;
+      margin: 15px auto 0; border-radius: 8px;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    }
+    .clear-image {
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(239,68,68,0.2); color: #f87171;
+      border: 1px solid rgba(239,68,68,0.3);
+      padding: 4px 8px; border-radius: 6px; font-size: 11px;
+      cursor: pointer; display: none;
+    }
+    .image-zone:hover .clear-image { display: block; }
+
+    /* ── Toggle Switch ── */
+    .switch {
+      position: relative; display: inline-block;
+      width: 36px; height: 18px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--border);
+      transition: .3s; border-radius: 20px;
+    }
+    .slider:before {
+      position: absolute; content: "";
+      height: 12px; width: 12px; left: 3px; bottom: 3px;
+      background-color: white; transition: .3s; border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(18px); }
+
+    .ai-btn {
+      background: linear-gradient(135deg, var(--accent2), #5b21b6);
+      color: #fff; border: none; padding: 8px 16px;
+      border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
+      transition: all 0.2s; margin-top: 10px; display: inline-flex; align-items: center; gap: 8px;
+    }
+    .ai-btn:hover { filter: brightness(1.2); transform: translateY(-1px); }
+    .ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ai-btn.loading { animation: pulse 1.5s infinite ease-in-out; }
+    @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+
+    .option-meta { display: flex; flex-direction: column; }
+
+    /* ── Queue ── */
+    .queue {
+      width: 100%;
+      max-width: 640px;
+      margin-top: 20px;
+    }
+    .queue-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .file-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      animation: slideIn 0.25s ease;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .file-icon { font-size: 24px; flex-shrink: 0; }
+    .file-info { flex: 1; min-width: 0; }
+    .file-name {
+      font-size: 14px; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .file-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .file-status {
+      font-size: 12px; font-weight: 500; padding: 4px 10px;
+      border-radius: 20px; flex-shrink: 0;
+    }
+    .status-processing { background: rgba(252,211,77,0.12); color: #fcd34d; }
+    .status-done { background: rgba(0,255,136,0.1); color: var(--green); }
+    .status-error { background: rgba(239,68,68,0.12); color: #f87171; }
+
+    .file-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+    button.btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 8px;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; border: none;
+      transition: all 0.15s ease;
+    }
+    .btn-copy {
+      background: linear-gradient(135deg, var(--accent), #0099bb);
+      color: #000;
+    }
+    .btn-copy:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-copy.copied { background: linear-gradient(135deg, var(--green), #00cc66); }
+    .btn-download {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-download:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-remove {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 7px 10px;
+    }
+    .btn-remove:hover { color: #f87171; border-color: #f87171; }
+
+    /* ── Instructions ── */
+    .instructions {
+      width: 100%;
+      max-width: 640px;
+      margin-top: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+    }
+    .instructions-title {
+      font-size: 13px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--muted); margin-bottom: 14px;
+    }
+    .step {
+      display: flex; align-items: flex-start; gap: 12px;
+      margin-bottom: 12px;
+    }
+    .step:last-child { margin-bottom: 0; }
+    .step-num {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #000; font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .step-text { font-size: 14px; line-height: 1.5; }
+    .step-text code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      background: var(--surface2);
+      padding: 2px 6px; border-radius: 4px;
+      color: var(--accent);
+    }
+
+    /* ── Empty state ── */
+    .empty-queue {
+      text-align: center; padding: 24px;
+      color: var(--muted); font-size: 14px;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: var(--surface2); border: 1px solid var(--accent);
+      color: var(--text); padding: 12px 20px; border-radius: 10px;
+      font-size: 14px; font-weight: 500;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      animation: toastIn 0.25s ease; z-index: 99;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translate(-50%, 10px); }
+      to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+  </style>
+  <style>
+    /* ── Select ── */
+    select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 14px;
+      font-family: 'Inter', system-ui, sans-serif;
+      outline: none; cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
+    }
+    select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1); }
+
+    .cors-note {
+      font-size: 11px; color: var(--muted);
+      padding: 6px 10px; margin-top: 6px;
+      background: rgba(252,211,77,0.06);
+      border: 1px solid rgba(252,211,77,0.15);
+      border-radius: 6px; display: none;
+    }
+    .ai-config-auto {
+      font-size: 12px; color: var(--green);
+      background: rgba(0,255,136,0.06);
+      border: 1px solid rgba(0,255,136,0.15);
+      padding: 8px 12px; border-radius: 8px;
+      margin-bottom: 10px; display: none;
+    }
+
+    /* ── Script Preview Panel ── */
+    .preview-panel {
+      display: none;
+      margin-top: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      max-height: 500px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    .preview-panel.open { display: block; animation: slideIn 0.2s ease; }
+    .preview-header {
+      display: flex; gap: 12px; padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 10px 10px 0 0;
+      position: sticky; top: 0; z-index: 2;
+    }
+    .preview-header-col {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--muted);
+    }
+    .preview-header-col.col-step { flex: 0 0 35%; }
+    .preview-header-col.col-script { flex: 1; }
+    .preview-header-col.col-time { flex: 0 0 90px; text-align: right; padding-right: 32px; }
+    .step-dur {
+      font-size: 10px;
+      color: var(--muted);
+      opacity: 0.5;
+      margin-top: 2px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .preview-row {
+      display: flex; gap: 12px; padding: 10px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      align-items: flex-start;
+      transition: background 0.15s;
+      position: relative;
+    }
+    .preview-row:hover { background: rgba(255,255,255,0.02); }
+    .delete-step-btn {
+      position: absolute;
+      right: 12px;
+      top: 10px;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      width: 26px; height: 26px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      opacity: 1;
+      transition: color 0.2s;
+      z-index: 1;
+    }
+    .preview-row:hover .delete-step-btn {
+      color: var(--text);
+    }
+    .delete-step-btn:hover {
+      color: #ef4444;
+    }
+    /* default styling for .preview-row.node-row is inherited */
+    .preview-row.link-row { background: rgba(0,255,136,0.02); }
+    .preview-row.section-row {
+      background: var(--surface);
+      padding: 6px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .preview-col-step {
+      flex: 0 0 35%;
+      display: flex; align-items: flex-start; gap: 8px;
+      min-width: 0;
+    }
+    .preview-col-script {
+      flex: 1;
+      min-width: 0;
+    }
+    .preview-col-time {
+      flex: 0 0 90px;
+      text-align: right;
+      padding-right: 32px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--muted);
+      padding-top: 2px;
+    }
+    .preview-step-badge {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      font-size: 10px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .node-row .preview-step-badge {
+      background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(124,58,237,0.15));
+      border: 1px solid rgba(0,212,255,0.3);
+      color: var(--accent);
+    }
+    .link-row .preview-step-badge {
+      background: rgba(0,255,136,0.1);
+      border: 1px solid rgba(0,255,136,0.25);
+      color: var(--green);
+    }
+    .preview-step-label {
+      font-size: 13px; line-height: 1.4;
+      flex: 1; min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .preview-step-label .step-type {
+      color: var(--muted); font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .preview-step-label .step-arrow {
+      color: var(--green); font-weight: 600; margin: 0 3px;
+    }
+    .preview-narration {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 12px;
+      font-family: 'Inter', system-ui, sans-serif;
+      line-height: 1.5;
+      padding: 6px 10px;
+      resize: none;
+      min-height: 32px;
+      height: auto;
+      overflow: hidden;
+      field-sizing: content;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .preview-narration:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+    }
+    .preview-narration::placeholder { color: var(--muted); opacity: 0.6; }
+    .preview-section-bar {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--muted);
+      width: 100%;
+    }
+    .preview-actions {
+      display: flex; gap: 8px; padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 0 0 10px 10px;
+      position: sticky; bottom: 0; z-index: 2;
+    }
+    .btn-gen-vo {
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      color: white; border: none; font-weight: 600;
+      padding: 6px 14px; border-radius: 6px; cursor: pointer;
+      font-size: 12px; transition: opacity 0.2s;
+    }
+    .btn-gen-vo:hover { opacity: 0.85; }
+    .btn-preview {
+      background: var(--surface2);
+      color: var(--accent);
+      border: 1px solid rgba(0,212,255,0.2);
+    }
+    .btn-preview:hover {
+      border-color: var(--accent);
+      background: rgba(0,212,255,0.06);
+    }
+    .btn-preview.active {
+      background: rgba(0,212,255,0.1);
+      border-color: var(--accent);
+    }
+  </style>
+
+  <!-- Optional local config (gitignored) -->
+  <script src="config.local.js" onerror=""></script>
+</head>
+<body>
+
+  <div class="app-layout">
+  <div class="app-left">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎬</div>
+      <h1>ComfyUI <span>Replay</span> Generator</h1>
+    </div>
+    <p class="subtitle">Drag workflow JSON files → get animated console scripts instantly</p>
+  </header>
+
+  <!-- Unified Drop Zone -->
+  <div class="drop-zone" id="drop-zone">
+    <button class="clear-image" id="clear-image">✕ Clear Image</button>
+    <div id="drop-prompt">
+      <span class="drop-icon">📁</span>
+      <div class="drop-title">Drop workflow JSON or screenshot here</div>
+      <p class="drop-sub">or <strong>click to browse</strong> — accepts <code>.json</code> workflows and images for AI narration</p>
+    </div>
+    <img id="image-preview" src="" alt="Workflow Preview" />
+  </div>
+  <input type="file" id="file-input" accept=".json,image/*" multiple />
+
+  <!-- Options -->
+  <div class="options">
+    <div class="options-title">Replay Options 
+      <div>
+        <button class="btn-example" onclick="loadExampleWorkflow()">Use Example</button>
+        <button class="btn-example" style="margin-left:6px;" onclick="loadExampleWorkflow(true)">Use Example 2 (Short)</button>
+      </div>
+    </div>
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label" id="delay-label">Step Delay</div>
+        <div class="option-desc" id="delay-desc">Base milliseconds between each node</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="range" id="delay-range" min="300" max="3000" step="100" value="1000" />
+        <input type="number" id="delay-input" value="1000" min="100" max="5000" step="100" />
+        <span style="color:var(--muted);font-size:13px;">ms</span>
+      </div>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label">Cursor Style</div>
+        <div class="option-desc">Choose the animated cursor appearance</div>
+      </div>
+      <select id="cursor-style">
+        <option value="macos" selected>macOS Cursor</option>
+        <option value="default">Default Arrow</option>
+      </select>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label">Cursor Size</div>
+        <div class="option-desc">Scale of the animated cursor</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="range" id="cursor-size" min="16" max="64" step="4" value="24" />
+        <span id="cursor-size-label" style="color:var(--muted);font-size:13px;font-family:'JetBrains Mono',monospace;width:32px;">24px</span>
+      </div>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label">Camera Follow</div>
+        <div class="option-desc">Auto-pan canvas to keep the active node visible</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="camera-pan-toggle" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label">Record Video</div>
+        <div class="option-desc">Prompt to screen-record the replay tab</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="record-video-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label">Show Debug Log</div>
+        <div class="option-desc">Display replay events on screen</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="show-debug-log-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label">Convert to MP4</div>
+        <div class="option-desc">Re-encode recording from WebM to MP4 (browser-side FFmpeg)</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="mp4-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label">Export FCPXML</div>
+        <div class="option-desc">Generate an XML timeline with cuts for Premiere/Final Cut</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="xml-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label">Use Node Panel</div>
+        <div class="option-desc">Create nodes via sidebar search &amp; drag instead of right-click menus</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="node-panel-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label">Show Captions</div>
+        <div class="option-desc">Display narration text as an on-screen overlay during replay</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="captions-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label">AI Voice Over Timing</div>
+        <div class="option-desc">Adjust replay speed to match narration word count</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="ai-timing-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="options-title" style="margin-top:20px;">AI Settings (Optional)</div>
+    <div class="ai-config-auto" id="config-auto-badge">
+      ✅ Local config loaded — using <strong id="config-auto-provider">Google Gemini</strong>
+    </div>
+    <div id="ai-manual-config">
+      <div class="option-row">
+        <div class="option-meta">
+          <div class="option-label">AI Provider</div>
+          <div class="option-desc">Choose your AI for narration generation</div>
+        </div>
+        <select id="ai-provider">
+          <option value="google">Google Gemini</option>
+          <option value="anthropic">Anthropic Claude</option>
+          <option value="openai">OpenAI GPT-4o</option>
+        </select>
+      </div>
+      <div class="cors-note" id="cors-note">
+        ⚠️ This provider requires a CORS proxy for browser-direct calls. Google Gemini is recommended for browser use.
+      </div>
+      <div class="option-row">
+        <div class="option-meta">
+          <div class="option-label">API Key</div>
+          <div class="option-desc" id="api-key-hint">Get a key from <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent);text-decoration:none;">AI Studio</a></div>
+        </div>
+        <input type="password" id="ai-key" placeholder="Enter key..." />
+      </div>
+    </div>
+  </div>
+
+  <!-- Queue -->
+  <div class="queue" id="queue-section">
+    <div class="queue-title">Queue</div>
+    <div id="queue-list">
+      <div class="empty-queue">No files yet — drop some workflows above ☝️</div>
+    </div>
+  </div>
+
+  </div> <!-- end app-left -->
+
+  <!-- Right sidebar: VO Script Preview -->
+  <div class="app-right" id="app-right">
+    <div class="app-right-empty" id="preview-empty">
+      <div>
+        <span class="empty-icon">📝</span>
+        <div>Drop a workflow JSON to see the<br>VO Script Preview here</div>
+      </div>
+    </div>
+    <div id="preview-sidebar" style="display:none;"></div>
+  </div>
+
+  </div> <!-- end app-layout -->
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    const files = new Map();
+    let delay = 1000;
+    let activeImageBase64 = null;
+    let activeImageMime = null;
+    let useAITiming = false;
+    let useCameraPan = true;
+    let convertToMp4 = false;
+    let exportXml = false;
+    let recordVideo = false;
+    let showDebugLog = false;
+    let useNodePanel = false;
+    let showCaptions = false;
+    let cursorStyle = 'macos';
+    let cursorSize = 24;
+
+    // AI Provider config — check local config first, then localStorage
+    const localConfig = window.__COMFY_CONFIG || null;
+    let aiProvider = localConfig?.provider || localStorage.getItem('ai_provider') || 'google';
+    let aiKey = localConfig?.apiKey || localStorage.getItem('ai_key') || '';
+
+    if (localConfig?.apiKey) {
+      // Auto-configured from config.local.js
+      document.getElementById('config-auto-badge').style.display = 'block';
+      const provNames = { google: 'Google Gemini', anthropic: 'Anthropic Claude', openai: 'OpenAI GPT-4o' };
+      document.getElementById('config-auto-provider').textContent = provNames[aiProvider] || aiProvider;
+      document.getElementById('ai-manual-config').style.display = 'none';
+    } else {
+      document.getElementById('ai-provider').value = aiProvider;
+      if (aiKey) document.getElementById('ai-key').value = aiKey;
+    }
+
+    // ── Topological Sort ───────────────────────────────────────────────────────
+    function topoSort(nodes, links) {
+      const nodeMap = new Map(nodes.map(n => [n.id, n]));
+      const inDegree = new Map(nodes.map(n => [n.id, 0]));
+      const adj = new Map(nodes.map(n => [n.id, []]));
+
+      for (const [, srcId,, tgtId] of links) {
+        if (nodeMap.has(srcId) && nodeMap.has(tgtId)) {
+          adj.get(srcId).push(tgtId);
+          inDegree.set(tgtId, inDegree.get(tgtId) + 1);
+        }
+      }
+
+      const queue = [...inDegree.entries()].filter(([,d]) => d === 0).map(([id]) => id);
+      const sorted = [];
+      while (queue.length) {
+        queue.sort((a, b) => {
+          const pa = nodeMap.get(a).pos || [0, 0];
+          const pb = nodeMap.get(b).pos || [0, 0];
+          return pa[0] - pb[0] || pa[1] - pb[1];
+        });
+        const cur = queue.shift();
+        sorted.push(cur);
+        for (const nb of adj.get(cur) || []) {
+          inDegree.set(nb, inDegree.get(nb) - 1);
+          if (inDegree.get(nb) === 0) queue.push(nb);
+        }
+      }
+      nodes.forEach(n => { if (!sorted.includes(n.id)) sorted.push(n.id); });
+      return sorted.map(id => nodeMap.get(id)).filter(Boolean);
+    }
+
+    // ── Script Generator ───────────────────────────────────────────────────────
+    function generateScript(workflow, delayMs, filename, narrations = null, deletedMetaSteps = []) {
+      const nodes = workflow.nodes || [];
+      const links = workflow.links || [];
+      const sorted = topoSort(nodes, links);
+      const narrationsJson = narrations ? JSON.stringify(narrations) : 'null';
+      const skipZoom = deletedMetaSteps.includes('__zoom');
+      const skipQueue = deletedMetaSteps.includes('__queue');
+
+      const connectionsByTarget = new Map();
+      for (const [lid, srcId, srcSlot, tgtId, tgtSlot] of links) {
+        if (!connectionsByTarget.has(tgtId)) connectionsByTarget.set(tgtId, []);
+        connectionsByTarget.get(tgtId, []).push({ srcId, srcSlot, tgtId, tgtSlot });
+      }
+      const connectionsInOrder = [];
+      for (const n of sorted) {
+        for (const c of connectionsByTarget.get(n.id) || []) connectionsInOrder.push(c);
+      }
+
+      const nodesData = sorted.map(n => ({
+        id: n.id,
+        type: n.type,
+        title: n.title || n.type,
+        pos: Array.isArray(n.pos) ? n.pos : [n.pos?.x || 100, n.pos?.y || 100],
+        size: n.size || [210, 80],
+        widgets_values: n.widgets_values || null,
+        properties: n.properties || null,
+      }));
+
+      const linksData = connectionsInOrder.map(c => ({
+        srcId: c.srcId, srcSlot: c.srcSlot, tgtId: c.tgtId, tgtSlot: c.tgtSlot,
+      }));
+
+      return `
+// ComfyUI Animated Replay — ${filename}
+// ${nodes.length} nodes | ${links.length} links | ${delayMs}ms delay
+// Stop: window.__replayStop = true;
+
+(async function() {
+  const DLY = ${delayMs};
+  const NODES = ${JSON.stringify(nodesData)};
+  const LINKS = ${JSON.stringify(linksData)};
+  const NARRATIONS = ${narrationsJson};
+  const USE_AI_TIMING = ${useAITiming};
+  const USE_CAMERA_PAN = ${useCameraPan};
+  const CONVERT_TO_MP4 = ${convertToMp4};
+  const EXPORT_XML = ${exportXml};
+  const RECORD_VIDEO = ${recordVideo};
+  const SHOW_DEBUG_LOG = ${showDebugLog};
+  const USE_NODE_PANEL = ${useNodePanel};
+  const CURSOR_STYLE = '${cursorStyle}';
+  const CURSOR_SIZE = ${cursorSize};
+  const SHOW_CAPTIONS = ${showCaptions};
+  window.__replayStop = false;
+
+  document.getElementById('__rc')?.remove();
+  document.getElementById('__ro')?.remove();
+  document.getElementById('__rs')?.remove();
+
+  const sty=document.createElement('style');sty.id='__rs';
+  sty.textContent='@keyframes __rr{0%{transform:translate(-50%,-50%) scale(0);opacity:.6}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}'
+    +'@keyframes __rck{0%{transform:translate(-2px,-2px) scale(1)}50%{transform:translate(-2px,-2px) scale(.75)}100%{transform:translate(-2px,-2px) scale(1)}}'
+    +'@keyframes __rlb{0%{opacity:0;transform:translateY(6px)}15%{opacity:1;transform:translateY(0)}85%{opacity:1}100%{opacity:0}}'
+    +'#__rc.ck{animation:__rck .15s ease-in-out}';
+  document.head.appendChild(sty);
+
+  const CURSOR_SVGS = {
+    default: '<svg width="'+CURSOR_SIZE+'" height="'+CURSOR_SIZE+'" viewBox="0 0 24 24" fill="none"><path d="M5 3L19 12L12 13L9 20L5 3Z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+    macos: '<svg width="'+CURSOR_SIZE+'" height="'+CURSOR_SIZE+'" viewBox="0 0 28 28" fill="none"><path d="M8.2 2.8L8.2 24.2L13.4 18.6L18.2 26.8L22.2 24.4L17.2 16.6L24.2 16.2L8.2 2.8Z" fill="black" stroke="white" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+  };
+  const cur=document.createElement('div');cur.id='__rc';
+  cur.innerHTML=CURSOR_SVGS[CURSOR_STYLE]||CURSOR_SVGS.default;
+  Object.assign(cur.style,{position:'fixed',top:'0',left:'0',width:CURSOR_SIZE+'px',height:CURSOR_SIZE+'px',zIndex:'999999',pointerEvents:'none',filter:'drop-shadow(1px 2px 3px rgba(0,0,0,.4))',transform:'translate(-2px,-2px)'});
+  document.body.appendChild(cur);
+
+  const ov=document.createElement('div');ov.id='__ro';
+  Object.assign(ov.style,{position:'fixed',top:'0',left:'0',width:'100%',height:'100%',zIndex:'999998',pointerEvents:'none'});
+  document.body.appendChild(ov);
+
+  let cx=window.innerWidth/2,cy=window.innerHeight/2;
+  cur.style.left=cx+'px';cur.style.top=cy+'px';
+
+  const slp=ms=>new Promise(r=>setTimeout(r,ms));
+  const frm=()=>new Promise(r=>requestAnimationFrame(r));
+  function log(s,t,m){console.log('%c[Step '+s+'/'+t+'] '+m,'color:#00d4ff;font-weight:bold;');}
+
+  const dbg = document.createElement('div');
+  Object.assign(dbg.style, {
+    position:'fixed', bottom:'20px', right:'20px', width:'380px', height:'220px',
+    background:'rgba(15,15,20,0.85)', backdropFilter:'blur(5px)', border:'1px solid #444',
+    borderRadius:'8px', padding:'12px', color:'#0ee', fontFamily:'monospace',
+    fontSize:'12px', overflowY:'auto', zIndex:'999999', pointerEvents:'none',
+    boxShadow:'0 10px 30px rgba(0,0,0,0.5)', display:'flex', flexDirection:'column', gap:'4px'
+  });
+  dbg.innerHTML = '<strong style="color:#fff;margin-bottom:6px;">📡 Replay Debug Log</strong>';
+  if(SHOW_DEBUG_LOG) document.body.appendChild(dbg); // only show if requested
+
+  function logD(msg, c='#0ee') {
+    if(!SHOW_DEBUG_LOG) return;
+    const t = new Date().toISOString().split('T')[1].slice(0,-1);
+    const line = document.createElement('div');
+    line.innerHTML = \`<span style="color:#888;">[\${t}]</span> <span style="color:\${c}">\${msg}</span>\`;
+    dbg.appendChild(line);
+    dbg.scrollTop = dbg.scrollHeight;
+  }
+
+  let recorder=null,chunks=[],recStream=null;
+  let recStartTime=0,stepEvents=[];
+  if (RECORD_VIDEO) {
+    logD('RECORD_VIDEO is enabled. Injecting Start button.', '#fca5a5');
+    await new Promise(resolve => {
+       const startBtn = document.createElement('button');
+       startBtn.textContent = '🎥 Start Recording Replay';
+       Object.assign(startBtn.style, {
+         position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+         padding: '20px 40px', fontSize: '24px', fontWeight: 'bold', background: '#ff4444', color: '#fff',
+         border: 'none', borderRadius: '12px', cursor: 'pointer', zIndex: '999999',
+         boxShadow: '0 10px 25px rgba(255,68,68,0.4)', transition: 'transform 0.2s'
+       });
+       startBtn.onmouseenter=()=>startBtn.style.transform='translate(-50%, -50%) scale(1.05)';
+       startBtn.onmouseleave=()=>startBtn.style.transform='translate(-50%, -50%) scale(1)';
+       startBtn.onclick = async () => {
+         startBtn.textContent = 'Requesting Screen...';
+         logD('Start button clicked. Calling getDisplayMedia...', '#fca5a5');
+         try {
+           recStream=await navigator.mediaDevices.getDisplayMedia({
+             video: true,
+             audio: false,
+             selfBrowserSurface: 'include',
+             surfaceSwitching: 'include'
+           });
+           logD('Screen selected. Tracks: '+recStream.getTracks().length, '#34d399');
+           const mTypes=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm;codecs=h264','video/webm','video/mp4'];
+           const mType=mTypes.find(t=>MediaRecorder.isTypeSupported(t))||'';
+           logD('MIME type chosen: '+(mType||'default fallback'), '#34d399');
+           recorder=new MediaRecorder(recStream,mType?{mimeType:mType}:{});
+           recorder.ondataavailable=e=>{
+             if(e.data.size>0){
+               chunks.push(e.data);
+               logD('Chunk available: '+e.data.size+' bytes', '#a78bfa');
+             } else {
+               logD('Empty chunk received.', '#ef4444');
+             }
+           };
+           recorder.start();
+           recStartTime=Date.now();
+           logD('Recording STARTED.', '#00ff88');
+           console.log('%c🔴 Recording!','color:#ff4444;font-size:14px;font-weight:bold;');
+           startBtn.remove();
+           await slp(500);
+           resolve();
+         } catch(e) {
+           logD('getDisplayMedia failed: '+e.message, '#ef4444');
+           console.warn('⚠️ Recording skipped:',e.message);
+           startBtn.remove();
+           resolve();
+         }
+       };
+       document.body.appendChild(startBtn);
+       console.log('%c🎥 Waiting for click to bypass browser security...','color:#fcd34d;font-size:14px;font-weight:bold;');
+    });
+  }
+  function c2s(cx2,cy2){
+    const el=document.querySelector('canvas.graph-canvas-container')||document.querySelector('canvas#graph-canvas')||document.querySelector('canvas');
+    if(!el)return{x:cx2,y:cy2};const r=el.getBoundingClientRect(),ds=app.canvas.ds;
+    return{x:(cx2+ds.offset[0])*ds.scale+r.left,y:(cy2+ds.offset[1])*ds.scale+r.top};
+  }
+
+  async function panTo(cvX,cvY,dur){
+    dur=dur||400;const margin=120,sc=c2s(cvX,cvY);const vw=window.innerWidth,vh=window.innerHeight;
+    if(sc.x>margin&&sc.x<vw-margin&&sc.y>margin&&sc.y<vh-margin)return;
+    const ds=app.canvas.ds;
+    const el=document.querySelector('canvas.graph-canvas-container')||document.querySelector('canvas#graph-canvas')||document.querySelector('canvas');
+    const rect=el?el.getBoundingClientRect():{left:0,top:0,width:vw,height:vh};
+    const nOX=(rect.width/2)/ds.scale-cvX,nOY=(rect.height/2)/ds.scale-cvY;
+    const sOX=ds.offset[0],sOY=ds.offset[1],steps=Math.max(20,Math.floor(dur/16));
+    for(let i=0;i<=steps;i++){if(window.__replayStop)return;const t=i/steps,ease=t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+      ds.offset[0]=sOX+(nOX-sOX)*ease;ds.offset[1]=sOY+(nOY-sOY)*ease;app.canvas.setDirty(true,true);await frm();}
+  }
+
+  async function moveTo(tx,ty,dur){dur=dur||500;const fx=cx,fy=cy,steps=Math.max(30,Math.floor(dur/16));
+    for(let i=0;i<=steps;i++){if(window.__replayStop)return;const t=i/steps,ease=t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+      cx=fx+(tx-fx)*ease;cy=fy+(ty-fy)*ease;cur.style.left=cx+'px';cur.style.top=cy+'px';await frm();}cx=tx;cy=ty;}
+
+  function ripple(color){color=color||'rgba(0,212,255,.6)';cur.classList.remove('ck');void cur.offsetWidth;cur.classList.add('ck');
+    const r=document.createElement('div');Object.assign(r.style,{position:'fixed',left:cx+'px',top:cy+'px',width:'40px',height:'40px',borderRadius:'50%',border:'2px solid '+color,animation:'__rr .4s ease-out forwards',pointerEvents:'none'});
+    ov.appendChild(r);setTimeout(()=>r.remove(),500);}
+
+  function label(text,dur){if(!SHOW_CAPTIONS)return;dur=dur||2000;const l=document.createElement('div');l.textContent=text;
+    Object.assign(l.style,{position:'fixed',left:(cx+30)+'px',top:(cy-10)+'px',background:'rgba(0,0,0,.8)',color:'#00d4ff',padding:'4px 10px',borderRadius:'6px',fontSize:'13px',fontFamily:'system-ui',fontWeight:'500',pointerEvents:'none',zIndex:'999999',whiteSpace:'nowrap',animation:'__rlb '+dur+'ms ease-in-out forwards'});
+    ov.appendChild(l);setTimeout(()=>l.remove(),dur);}
+
+  async function typeInWidget(node,wi,text){
+    if(!node.widgets||!node.widgets[wi])return;
+    const w=node.widgets[wi];
+    const wy=(w.last_y!==undefined)?w.last_y+10:(30+wi*20);
+    const ns=c2s(node.pos[0]+node.size[0]/2,node.pos[1]+wy);
+    await moveTo(ns.x,ns.y,300);ripple();await slp(200);
+    w.value='';const s=String(text);
+    let curVis=true;const curBlink=setInterval(()=>{curVis=!curVis;const base=w.value.endsWith('|')?w.value.slice(0,-1):w.value;w.value=curVis?base+'|':base;app.canvas.setDirty(true,true);},400);
+    for(let i=0;i<s.length;i++){if(window.__replayStop){clearInterval(curBlink);w.value=s;return;}w.value=s.slice(0,i+1)+'|';curVis=true;app.canvas.setDirty(true,true);await slp(25+Math.random()*40);}
+    clearInterval(curBlink);w.value=s;app.canvas.setDirty(true,true);
+    try{w.callback?.(w.value);}catch(e){}app.canvas.setDirty(true,true);}
+
+  async function clickWidgetArrow(node,wi,v){
+    if(!node.widgets||!node.widgets[wi])return;
+    const w=node.widgets[wi];
+    const wy=(w.last_y!==undefined)?w.last_y+10:(30+wi*20);
+    const ns=c2s(node.pos[0]+node.size[0]-20,node.pos[1]+wy);
+    await moveTo(ns.x,ns.y,300);
+    ripple();
+    await slp(100);
+    if(Math.random()>0.5){ripple();await slp(100);} // simulate a couple clicks sometimes
+    w.value=v;try{w.callback?.(v);}catch(e){}app.canvas.setDirty(true,true);
+  }
+
+  async function dragNodeTo(node, tx, ty, dur) {
+    dur = dur || 600;
+    const sx = node.pos[0], sy = node.pos[1];
+    if (Math.abs(sx - tx) < 2 && Math.abs(sy - ty) < 2) return;
+    
+    // grab the node header (top centerish)
+    const hx = sx + Math.min(node.size[0]/2, 100);
+    const hy = sy + 15;
+    const sc = c2s(hx, hy);
+    await moveTo(sc.x, sc.y, 300);
+    ripple(); await slp(150);
+    
+    const steps = Math.max(30, Math.floor(dur/16));
+    for (let i = 0; i <= steps; i++) {
+      if (window.__replayStop) return;
+      const t = i / steps;
+      const ease = t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+      node.pos[0] = sx + (tx - sx) * ease;
+      node.pos[1] = sy + (ty - sy) * ease;
+      
+      const curSC = c2s(node.pos[0] + Math.min(node.size[0]/2, 100), node.pos[1] + 15);
+      cx = curSC.x; cy = curSC.y;
+      cur.style.left = cx+'px'; cur.style.top = cy+'px';
+      app.canvas.setDirty(true,true);
+      await frm();
+    }
+    node.pos[0] = tx; node.pos[1] = ty;
+    ripple(); await slp(100);
+  }
+
+  async function dragTo(fx,fy,tx,ty,dur){dur=dur||700;await moveTo(fx,fy,400);await slp(100);ripple();await slp(100);
+    const trail=document.createElement('canvas');trail.width=window.innerWidth;trail.height=window.innerHeight;
+    Object.assign(trail.style,{position:'fixed',top:'0',left:'0',width:'100%',height:'100%',zIndex:'999997',pointerEvents:'none'});
+    ov.appendChild(trail);const ctx=trail.getContext('2d'),steps=Math.max(30,Math.floor(dur/16));let px=fx,py=fy;
+    for(let i=0;i<=steps;i++){if(window.__replayStop){trail.remove();return;}const t=i/steps,ease=t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+      cx=fx+(tx-fx)*ease;cy=fy+(ty-fy)*ease;cur.style.left=cx+'px';cur.style.top=cy+'px';
+      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(cx,cy);ctx.strokeStyle='rgba(0,212,255,.3)';ctx.lineWidth=2;ctx.stroke();px=cx;py=cy;await frm();}
+    ripple();let op=1;const fi=setInterval(()=>{op-=.05;trail.style.opacity=op;if(op<=0){clearInterval(fi);trail.remove();}},30);}
+
+  function dismissMenus(){document.querySelectorAll('.litecontextmenu,.comfy-context-menu').forEach(m=>m.remove());}
+  function findEntry(text){
+    const menus=document.querySelectorAll('.litecontextmenu,.comfy-context-menu,.litegraph-context-menu');
+    if(menus.length===0)return null;
+    const last=menus[menus.length-1];
+    const entries=last.querySelectorAll('.litemenu-entry,.menu-entry');
+    for(const e of entries){const lb=e.querySelector('.litemenu-entry-content')?.textContent?.trim()||e.childNodes[0]?.textContent?.trim()||e.textContent?.trim();if(lb===text)return e;}
+    for(const e of entries){const lb=e.querySelector('.litemenu-entry-content')?.textContent?.trim()||e.childNodes[0]?.textContent?.trim()||e.textContent?.trim();if(lb&&lb.includes(text))return e;}
+    for(let mi=menus.length-2;mi>=0;mi--){const e2=menus[mi].querySelectorAll('.litemenu-entry,.menu-entry');for(const e of e2){const lb=e.querySelector('.litemenu-entry-content')?.textContent?.trim()||e.childNodes[0]?.textContent?.trim()||e.textContent?.trim();if(lb===text)return e;}}
+    return null;}
+
+  async function hoverEntry(e){const r=e.getBoundingClientRect();await moveTo(r.left+r.width/2,r.top+r.height/2,200);
+    e.dispatchEvent(new MouseEvent('mouseenter',{bubbles:true,clientX:cx,clientY:cy}));
+    e.dispatchEvent(new MouseEvent('mouseover',{bubbles:true,clientX:cx,clientY:cy}));
+    e.dispatchEvent(new PointerEvent('pointerenter',{bubbles:true,clientX:cx,clientY:cy}));
+    e.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:cx,clientY:cy}));}
+
+  async function clickEntry(e){ripple();e.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,clientX:cx,clientY:cy}));
+    await slp(30);e.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,clientX:cx,clientY:cy}));
+    e.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:cx,clientY:cy}));}
+
+  async function addViaMenu(nd,sx,sy){
+    const canvasEl=document.querySelector('canvas.graph-canvas-container')||document.querySelector('canvas#graph-canvas')||document.querySelector('canvas');
+    if(!canvasEl)return false;
+    ripple('rgba(255,165,0,.6)');
+    const rect=canvasEl.getBoundingClientRect();
+    function mkEvt(type){const e=new MouseEvent(type,{bubbles:true,cancelable:true,clientX:sx,clientY:sy,screenX:sx,screenY:sy,button:2,buttons:2});e.canvasX=sx-rect.left;e.canvasY=sy-rect.top;e.isPrimary=true;return e;}
+    let menuOpened=false;
+    try{if(app.canvas.processMouseDown){app.canvas.processMouseDown(mkEvt('mousedown'));await slp(80);if(app.canvas.processMouseUp)app.canvas.processMouseUp(mkEvt('mouseup'));await slp(400);menuOpened=!!document.querySelector('.litecontextmenu,.comfy-context-menu,.litegraph-context-menu');}}catch(e){}
+    if(!menuOpened){try{if(app.canvas.getCanvasMenuOptions&&LiteGraph.ContextMenu){const options=app.canvas.getCanvasMenuOptions();new LiteGraph.ContextMenu(options,{event:mkEvt('contextmenu'),callback:null,parentMenu:null,allow_html:false,node:null});await slp(400);menuOpened=!!document.querySelector('.litecontextmenu,.litegraph-context-menu');}}catch(e){}}
+    if(!menuOpened){try{const evOpts={bubbles:true,cancelable:true,clientX:sx,clientY:sy,button:2,buttons:2};canvasEl.dispatchEvent(new PointerEvent('pointerdown',evOpts));canvasEl.dispatchEvent(new MouseEvent('mousedown',evOpts));await slp(80);canvasEl.dispatchEvent(new PointerEvent('pointerup',evOpts));canvasEl.dispatchEvent(new MouseEvent('mouseup',evOpts));canvasEl.dispatchEvent(new MouseEvent('contextmenu',evOpts));await slp(400);menuOpened=!!document.querySelector('.litecontextmenu,.comfy-context-menu,.litegraph-context-menu');}catch(e){}}
+    if(menuOpened){const menu=document.querySelector('.litecontextmenu,.comfy-context-menu,.litegraph-context-menu');if(menu){menu.style.left=sx+'px';menu.style.top=sy+'px';}}
+    if(!menuOpened){dismissMenus();return false;}
+    function menuCount(){return document.querySelectorAll('.litecontextmenu,.comfy-context-menu,.litegraph-context-menu').length;}
+    async function waitSub(prev,timeout){timeout=timeout||800;const s=Date.now();while(Date.now()-s<timeout){if(menuCount()>prev)return true;await slp(50);}return false;}
+    let mc=menuCount();
+    const an=findEntry('Add Node')||findEntry('Add node');if(an){await hoverEntry(an);await slp(200);await clickEntry(an);await waitSub(mc);await slp(200);}
+    const cat=LiteGraph.registered_node_types[nd.type]?.category;
+    if(cat){const parts=cat.split('/');for(let pi=0;pi<parts.length;pi++){mc=menuCount();await slp(200);const ce=findEntry(parts[pi]);if(ce){await hoverEntry(ce);await slp(200);await clickEntry(ce);await waitSub(mc);await slp(200);}else{console.warn('Menu entry not found: '+parts[pi]);}}}
+    await slp(200);const reg=LiteGraph.registered_node_types[nd.type];
+    let ne=findEntry(nd.type)||findEntry(nd.title);
+    if(!ne&&reg&&reg.title)ne=findEntry(reg.title);
+    if(!ne&&reg&&reg.name)ne=findEntry(reg.name);
+    if(!ne&&nd.type.includes('/'))ne=findEntry(nd.type.split('/').pop());
+    if(ne){await hoverEntry(ne);await slp(200);await clickEntry(ne);await slp(300);dismissMenus();return true;}
+    dismissMenus();return false;}
+
+  // ── Add via Node Panel (sidebar search + drag) ─────────────
+  async function addViaPanel(nd, targetScreenX, targetScreenY) {
+    // 1. Open the Nodes sidebar tab
+    const nodesTab = [...document.querySelectorAll('nav button, aside button, [role="tab"], .sidebar-tab, .comfyui-sidebar button')]
+      .find(b => /^nodes$/i.test(b.textContent?.trim()) || b.getAttribute('aria-label')?.toLowerCase() === 'nodes');
+    if (nodesTab) {
+      const nr = nodesTab.getBoundingClientRect();
+      await moveTo(nr.left + nr.width/2, nr.top + nr.height/2, 300);
+      ripple(); nodesTab.click(); await slp(400);
+    }
+
+    // 2. Find the search input in the sidebar panel
+    const searchInput = document.querySelector('.comfyui-sidebar input[type="text"], .comfyui-sidebar input[placeholder*="Search"], aside input[type="text"], .node-search input, .sidebar-content input');
+    if (!searchInput) { console.warn('Node panel search input not found'); return false; }
+    const sr = searchInput.getBoundingClientRect();
+    await moveTo(sr.left + sr.width/2, sr.top + sr.height/2, 300);
+    ripple(); searchInput.focus(); searchInput.click(); await slp(200);
+
+    // 3. Type the node name into search
+    const searchTerm = nd.title !== nd.type ? nd.title : (nd.type.includes('/') ? nd.type.split('/').pop() : nd.type);
+    searchInput.value = '';
+    searchInput.dispatchEvent(new Event('input', {bubbles: true}));
+    await slp(100);
+    for (let i = 0; i < searchTerm.length; i++) {
+      if (window.__replayStop) return false;
+      searchInput.value = searchTerm.slice(0, i + 1);
+      searchInput.dispatchEvent(new Event('input', {bubbles: true}));
+      await slp(30 + Math.random() * 30);
+    }
+    await slp(400);
+
+    // 4. Find the matching result item
+    const results = document.querySelectorAll('.comfyui-sidebar .node-item, .comfyui-sidebar [draggable], aside .comfy-node-item, .sidebar-content .tree-leaf, .comfyui-sidebar li');
+    let match = null;
+    for (const r of results) {
+      const label = r.textContent?.trim();
+      if (label && (label === nd.type || label === searchTerm || label.includes(searchTerm))) { match = r; break; }
+    }
+    if (!match) { console.warn('Node panel: no match for ' + searchTerm); return false; }
+
+    // 5. Drag the result to the canvas target position
+    const mr = match.getBoundingClientRect();
+    const startX = mr.left + mr.width/2, startY = mr.top + mr.height/2;
+    await moveTo(startX, startY, 300); ripple(); await slp(150);
+
+    const dragOpts = {bubbles: true, cancelable: true, clientX: startX, clientY: startY};
+    match.dispatchEvent(new DragEvent('dragstart', {...dragOpts, dataTransfer: new DataTransfer()}));
+    match.dispatchEvent(new PointerEvent('pointerdown', dragOpts));
+    match.dispatchEvent(new MouseEvent('mousedown', dragOpts));
+    await slp(100);
+
+    const canvasEl2 = document.querySelector('canvas.graph-canvas-container') || document.querySelector('canvas#graph-canvas') || document.querySelector('canvas');
+    if (!canvasEl2) return false;
+    const panelSteps = 25;
+    for (let i = 0; i <= panelSteps; i++) {
+      if (window.__replayStop) return false;
+      const t = i / panelSteps, ease = t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+      const mx = startX + (targetScreenX - startX) * ease;
+      const my = startY + (targetScreenY - startY) * ease;
+      cx = mx; cy = my; cur.style.left = cx + 'px'; cur.style.top = cy + 'px';
+      canvasEl2.dispatchEvent(new DragEvent('dragover', {bubbles: true, cancelable: true, clientX: mx, clientY: my}));
+      await frm();
+    }
+
+    const dt = new DataTransfer();
+    dt.setData('text/plain', nd.type);
+    canvasEl2.dispatchEvent(new DragEvent('drop', {bubbles: true, cancelable: true, clientX: targetScreenX, clientY: targetScreenY, dataTransfer: dt}));
+    canvasEl2.dispatchEvent(new DragEvent('dragend', {bubbles: true, cancelable: true, clientX: targetScreenX, clientY: targetScreenY}));
+    match.dispatchEvent(new PointerEvent('pointerup', {bubbles: true, clientX: targetScreenX, clientY: targetScreenY}));
+    match.dispatchEvent(new MouseEvent('mouseup', {bubbles: true, clientX: targetScreenX, clientY: targetScreenY}));
+    ripple('rgba(0,255,136,.6)');
+    await slp(300);
+
+    searchInput.value = ''; searchInput.dispatchEvent(new Event('input', {bubbles: true}));
+    return true;
+  }
+
+  function isTextWidget(w){if(!w)return false;const t=(w.type||'').toLowerCase();
+    if(t==='combo')return false;
+    if(t==='text'||t==='string'||t==='customtext')return true;if(w.options?.multiline)return true;
+    if(typeof w.value==='string'&&w.value.length>20)return true;return false;}
+
+  const total=NODES.length+LINKS.length;let step=0;const refs={};const connectedLinks=new Set();
+  try{
+    if(app.api&&app.api.clearItems){ await app.api.clearItems('history'); await app.api.clearItems('queue'); }
+    else{ await fetch('/history',{method:'POST',body:JSON.stringify({clear:true})}); await fetch('/queue',{method:'POST',body:JSON.stringify({clear:true})}); }
+  }catch(e){}
+  log(0,total,'🧹 Clearing canvas...');app.graph.clear();app.canvas.setDirty(true,true);await slp(DLY);
+
+  for(const nd of NODES){
+    if(window.__replayStop)break;step++;
+    log(step,total,'➕ '+nd.title+' ('+nd.type+')');
+    if(EXPORT_XML&&RECORD_VIDEO) stepEvents.push({name:'Node: '+nd.title, timeMs:Date.now()-recStartTime});
+    const ncx=nd.pos[0]+nd.size[0]/2,ncy=nd.pos[1]+nd.size[1]/2;
+    if(USE_CAMERA_PAN) await panTo(ncx,ncy,500);
+    const sp=c2s(ncx,ncy);await moveTo(sp.x,sp.y,500);await slp(200);
+    const before=app.graph._nodes.length;
+    if(USE_NODE_PANEL){await addViaPanel(nd,sp.x,sp.y);}else{await addViaMenu(nd,sp.x,sp.y);}
+    await slp(200);
+    let created=app.graph._nodes.length>before?app.graph._nodes[app.graph._nodes.length-1]:null;
+    if(!created){log(step,total,'   ⚙️ API fallback: '+nd.type);ripple();created=LiteGraph.createNode(nd.type);if(created)app.graph.add(created);}
+    if(created){
+      created.size=[nd.size[0],nd.size[1]];
+      await dragNodeTo(created, nd.pos[0], nd.pos[1], 500);
+      created.pos=[nd.pos[0],nd.pos[1]];
+      if(nd.title!==nd.type)created.title=nd.title;
+      app.canvas.setDirty(true,true);await slp(50);
+      if(nd.widgets_values&&created.widgets){
+        for(let i=0;i<Math.min(created.widgets.length,nd.widgets_values.length);i++){
+          const v=nd.widgets_values[i];if(v==null)continue;
+          if(typeof v==='string'&&isTextWidget(created.widgets[i])){await typeInWidget(created,i,v);}
+          else if(created.widgets[i].type==='combo'){await clickWidgetArrow(created,i,v);}
+          else{created.widgets[i].value=v;try{created.widgets[i].callback?.(v);}catch(e){}}
+        }
+      }
+      if(nd.properties)Object.assign(created.properties,nd.properties);
+      refs[nd.id]=created.id;app.canvas.setDirty(true,true);
+    }
+    label(nd.title, (DLY + 500) * 0.5);
+    let stepDly = DLY * 0.5;
+
+    // AI Narration Timing — only apply speech-based delays when USE_AI_TIMING is on
+    if (USE_AI_TIMING && NARRATIONS && NARRATIONS[nd.id]) {
+      const msg = NARRATIONS[nd.id];
+      const wordCount = msg.split(' ').length;
+      const speechTime = (wordCount / 2.5) * 1000; // Average 150 WPM
+      label(msg, speechTime + 1000);
+      // DLY acts as padding: pause DLY before narration, wait speechTime, then DLY after
+      await slp(DLY);
+      stepDly = speechTime;
+      console.log('%c🎙️ Narration: ' + msg, 'color:#fcd34d;');
+    }
+
+    await slp(stepDly);
+    if (USE_AI_TIMING && NARRATIONS && NARRATIONS[nd.id]) await slp(DLY); // post-narration padding
+
+    // Connect any links where both nodes now exist
+    for(let li=0;li<LINKS.length;li++){
+      if(window.__replayStop)break;
+      if(connectedLinks.has(li))continue;
+      const lk=LINKS[li];
+      if(refs[lk.srcId]==null||refs[lk.tgtId]==null)continue;
+      connectedLinks.add(li);step++;
+      const sn=app.graph.getNodeById(refs[lk.srcId]),tn=app.graph.getNodeById(refs[lk.tgtId]);
+      if(!sn||!tn)continue;
+      log(step,total, '🔗 '+(sn.title||sn.type)+'['+lk.srcSlot+'] → '+(tn.title||tn.type)+'['+lk.tgtSlot+']');
+      if(EXPORT_XML&&RECORD_VIDEO) stepEvents.push({name:'Link: '+sn.title+' -> '+tn.title, timeMs:Date.now()-recStartTime});
+      const midX=(sn.pos[0]+tn.pos[0])/2,midY=(sn.pos[1]+tn.pos[1])/2;
+      if(USE_CAMERA_PAN) await panTo(midX,midY,400);
+      const sp2=new Float32Array(2),tp2=new Float32Array(2);
+      sn.getConnectionPos(false,lk.srcSlot,sp2);tn.getConnectionPos(true,lk.tgtSlot,tp2);
+      const ss=c2s(sp2[0],sp2[1]),ts=c2s(tp2[0],tp2[1]);
+      await dragTo(ss.x,ss.y,ts.x,ts.y,600);await slp(50);
+      sn.connect(lk.srcSlot,tn,lk.tgtSlot);app.canvas.setDirty(true,true);await slp(DLY*0.3);
+    }
+    await slp(stepDly * 0.5);
+  }
+
+  // ── Zoom to Fit ─────────────────────────────────────────────
+  if (!${skipZoom}) {
+    console.log('%c📐 Zooming to fit workflow...','color:#00d4ff;font-weight:bold;');
+    const zoomEvent=new KeyboardEvent('keydown',{key:'.',code:'Period',keyCode:190,bubbles:true});
+    document.dispatchEvent(zoomEvent);window.dispatchEvent(zoomEvent);
+    await slp(800);
+  }
+
+  // ── Click Run / Queue Prompt ────────────────────────────────
+  if (!${skipQueue}) {
+    console.log('%c▶️ Clicking Run...','color:#00d4ff;font-weight:bold;');
+    const runBtn=document.querySelector('[data-testid="queue-button"]')||document.querySelector('button.comfyui-button.primary')||document.querySelector('#queue-button')||document.querySelector('button[title="Queue Prompt"]')||[...document.querySelectorAll('button')].find(b=>/queue|run/i.test(b.textContent)||/queue|run/i.test(b.title||''));
+    if(runBtn){
+      console.log('%c✅ Found Run button:','color:#00ff88;',runBtn);
+      const bR=runBtn.getBoundingClientRect();const bX=bR.left+bR.width/2,bY=bR.top+bR.height/2;
+      await moveTo(bX,bY,500);await slp(300);
+      ripple('rgba(0,255,136,.6)');
+      const evO={bubbles:true,cancelable:true,clientX:bX,clientY:bY,button:0};
+      runBtn.dispatchEvent(new PointerEvent('pointerdown',evO));runBtn.dispatchEvent(new MouseEvent('mousedown',evO));
+      await slp(80);
+      runBtn.dispatchEvent(new PointerEvent('pointerup',evO));runBtn.dispatchEvent(new MouseEvent('mouseup',evO));
+      runBtn.dispatchEvent(new MouseEvent('click',evO));runBtn.click();
+      console.log('%c⏳ Workflow queued! Waiting for execution...','color:#fcd34d;font-weight:bold;');
+    }else{
+      console.log('%c⚙️ No Run button found, queuing via API...','color:#888;');
+      try{await app.queuePrompt(0,1);}catch(e){try{const p=await app.graphToPrompt();await fetch('/prompt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:p.output})});}catch(e2){console.warn('⚠️ Could not trigger execution:',e2.message);}}
+      console.log('%c⏳ Waiting for execution...','color:#fcd34d;font-weight:bold;');
+    }
+  }
+
+  // ── Wait for Execution ──────────────────────────────────────
+  await moveTo(window.innerWidth/2,window.innerHeight/2,400);
+  const maxWait=5*60*1000,pollStart=Date.now();let execDone=false;
+  while(Date.now()-pollStart<maxWait&&!window.__replayStop){await slp(500);
+    const appRunning=app.runningNodeId!=null;
+    const hasOut=document.querySelectorAll('.comfyui-image-preview img,.preview-image img').length>0;
+    if(!appRunning&&hasOut){execDone=true;break;}
+    if(Date.now()-pollStart>3000&&!appRunning){await slp(2000);execDone=true;break;}
+  }
+  if(execDone)console.log('%c✅ Execution complete!','color:#00ff88;font-size:14px;font-weight:bold;');
+  else console.log('%c⏰ Execution wait timed out.','color:#fcd34d;font-weight:bold;');
+  await slp(2000);
+
+  // ── Cleanup & Save Recording ────────────────────────────────
+  console.log('%c✅ Replay complete! '+NODES.length+' nodes, '+LINKS.length+' connections.','color:#00ff88;font-size:14px;font-weight:bold;');
+  cur.style.transition='opacity .5s';cur.style.opacity='0';await slp(600);
+  cur.remove();ov.remove();sty.remove();
+  if(recorder&&recorder.state!=='inactive'){
+    await new Promise(resolve=>{recorder.onstop=async()=>{
+      let blob=new Blob(chunks,{type:'video/webm'});
+      const ts=new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+      let filename='comfyui-replay-'+ts;
+      if(CONVERT_TO_MP4){
+        try{
+          console.log('%c🔄 Converting to MP4...','color:#fcd34d;font-size:14px;font-weight:bold;');
+          logD('Downloading FFmpeg WASM module...', '#fcd34d');
+          const {FFmpeg}=await import('https://esm.sh/@ffmpeg/ffmpeg@0.12.10');
+          const {fetchFile}=await import('https://esm.sh/@ffmpeg/util@0.12.1');
+          const ffmpeg=new FFmpeg();
+          
+          ffmpeg.on('log', ({ message }) => {
+            console.log('%cFFmpeg: ' + message, 'color:#888;');
+          });
+
+          await ffmpeg.load({
+            coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
+            wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm'
+          });
+          
+          logD('FFmpeg loaded. Writing WebM to virtual FS...', '#fcd34d');
+          await ffmpeg.writeFile('input.webm',await fetchFile(blob));
+          
+          logD('Transcoding WebM -> MP4 (this may take a minute)...', '#fcd34d');
+          await ffmpeg.exec(['-i','input.webm','-c:v','libx264','-preset','fast','-crf','23','-pix_fmt','yuv420p',filename+'.mp4']);
+          
+          const data=await ffmpeg.readFile(filename+'.mp4');
+          blob=new Blob([data.buffer],{type:'video/mp4'});
+          filename+='.mp4';
+          
+          logD('MP4 conversion complete!', '#34d399');
+          console.log('%c✅ MP4 conversion complete!','color:#00ff88;font-size:14px;font-weight:bold;');
+        }catch(e){
+          logD('⚠️ MP4 conversion failed: ' + e.message, '#ef4444');
+          console.warn('⚠️ MP4 conversion failed, saving WebM:',e.message);
+          filename+='.webm';
+        }
+      }else{filename+='.webm';}
+      
+      logD(\`Replay closed. Recorder chunks: \${chunks.length}. Blob size: \${blob.size} bytes.\`, '#fcd34d');
+      if (blob.size === 0) logD('CRITICAL: Blob size is 0 bytes! Screen stream failed.', '#ef4444');
+      console.log('%c💾 Saving files...','color:#fcd34d;font-size:14px;font-weight:bold;');
+      
+      const ovly = document.createElement('div');
+      Object.assign(ovly.style, {
+        position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)',
+        background:'#1e1e1e', padding:'30px', borderRadius:'16px', boxShadow:'0 20px 50px rgba(0,0,0,0.8)',
+        zIndex:'999999', textAlign:'center', color:'#fff', fontFamily:'sans-serif', border:'1px solid #333'
+      });
+      ovly.innerHTML = '<h2 style="margin:0 0 20px 0;color:#00ff88;">✅ Replay Complete!</h2><div id="__rlinks" style="display:flex;gap:15px;justify-content:center;"></div><button id="__rclose" style="margin-top:20px;background:transparent;border:none;color:#aaa;cursor:pointer;text-decoration:underline;">Close Overlay</button>';
+      document.body.appendChild(ovly);
+      document.getElementById('__rclose').onclick = () => ovly.remove();
+      const rlinks = document.getElementById('__rlinks');
+
+      function adl(blb, fn, txt, col) {
+         const a = document.createElement('a');
+         a.href = URL.createObjectURL(blb); a.download = fn; a.textContent = txt;
+         Object.assign(a.style, {
+           background:col, color:'#fff', padding:'12px 20px', borderRadius:'8px',
+           textDecoration:'none', fontWeight:'bold', fontSize:'14px', display:'inline-block', flex:'1'
+         });
+         rlinks.appendChild(a); return a;
+      }
+
+      let autoSaved = 0, expFiles = 1;
+
+      // Generate XML if requested
+      if(EXPORT_XML&&RECORD_VIDEO){
+        expFiles = 2;
+        try{
+          logD('Generating XML...', '#fcd34d');
+          const fps=30;const durationFrames=Math.round(((Date.now()-recStartTime)/1000)*fps);
+          let clipsXml='',fileDefAdded=false;
+          for(let i=0;i<stepEvents.length;i++){
+             const e=stepEvents[i];
+             const nxt=i<stepEvents.length-1?stepEvents[i+1].timeMs:(durationFrames*(1000/fps));
+             const startFrame=Math.round((e.timeMs/1000)*fps);
+             let endFrame=Math.round((nxt/1000)*fps);
+             if(endFrame<=startFrame)endFrame=startFrame+1;
+             if(endFrame>durationFrames)endFrame=durationFrames;
+             if(startFrame>=durationFrames)break;
+             const fileDef=fileDefAdded?'<file id="file-1"/>':\`<file id="file-1"><name>\${filename}</name><pathurl>file://localhost/\${filename}</pathurl><rate><timebase>\${fps}</timebase><ntsc>FALSE</ntsc></rate><duration>\${durationFrames}</duration><media><video><duration>\${durationFrames}</duration><samplecharacteristics><width>1920</width><height>1080</height></samplecharacteristics></video></media></file>\`;
+             fileDefAdded=true;
+             clipsXml+=\`\\n<clipitem id="clip-\${i}"><name>\${e.name}</name><duration>\${durationFrames}</duration><rate><timebase>\${fps}</timebase><ntsc>FALSE</ntsc></rate><start>\${startFrame}</start><end>\${endFrame}</end><in>\${startFrame}</in><out>\${endFrame}</out>\${fileDef}</clipitem>\`;
+          }
+          const xmlStr=\`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="4"><project><name>Comfy Replay</name><children><sequence id="sequence-1"><name>Replay Sequence</name><duration>\${durationFrames}</duration><rate><timebase>\${fps}</timebase><ntsc>FALSE</ntsc></rate><media><video><track>\${clipsXml}</track></video></media></sequence></children></project></xmeml>\`;
+          const xmlBlob=new Blob([xmlStr],{type:'application/xml'});
+          const xmlName=filename.split('.')[0]+'.xml';
+          const xa = adl(xmlBlob, xmlName, '📥 Download XML', '#ff9900');
+          logD('XML UI element created. Triggering a.click()...', '#fcd34d');
+          xa.click(); // fallback auto-download
+        }catch(xe){console.error('XML Generation error:',xe); logD('XML Error: '+xe.message, '#ef4444');}
+      }
+
+      logD('Video UI element created. Triggering a.click()...', '#00d4ff');
+      const va = adl(blob, filename, '📥 Download Video', '#0099bb');
+      va.click(); // fallback auto-download
+      logD('Script execution flawlessly completed! 🏁', '#00ff88');
+
+      console.log('%c✅ File(s) downloaded to default folder!','color:#00ff88;font-size:14px;font-weight:bold;');
+      ovly.innerHTML += '<div style="margin-top:20px;font-size:14px;color:#00d4ff;font-weight:bold;">Check your default Browser Downloads folder,<br>or click the buttons above.</div>';
+      resolve();
+    }; recorder.stop();if(recStream)recStream.getTracks().forEach(t=>t.stop()); });}
+})();
+      `.trim();
+    }
+
+    // ── Process File ───────────────────────────────────────────────────────────
+    function processFile(file) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const workflow = JSON.parse(e.target.result);
+          const nodes = workflow.nodes || [];
+          const links = workflow.links || [];
+          if (nodes.length === 0) throw new Error('No nodes found');
+          
+          let narrations = null;
+          if (activeImageBase64 && aiKey) {
+            try {
+              showToast('Generating AI tutorial script...');
+              narrations = await callAI(aiProvider, nodes, links, activeImageBase64, activeImageMime, aiKey);
+              showToast('✨ AI Narration ready!');
+            } catch (err) {
+              console.error('AI Error:', err);
+              showToast('AI script failed: ' + err.message);
+            }
+          }
+
+          const script = generateScript(workflow, delay, file.name, narrations);
+          files.set(file.name, { 
+            name: file.name, 
+            script, 
+            nodeCount: nodes.length, 
+            linkCount: links.length, 
+            narrations,
+            _rawWorkflow: workflow 
+          });
+          activePreviewFile = file.name;
+          renderQueue();
+        } catch (err) {
+          files.set(file.name, { name: file.name, error: err.message, script: null });
+          renderQueue();
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    const AI_PROMPT = 'Analyze this ComfyUI workflow JSON and the provided screenshot. For each node, generate a natural 1-sentence tutorial narration explaining its role in THIS specific workflow build. Return ONLY a JSON object mapping node IDs (as string keys) to their narration text. Example: {"1": "First we load our checkpoint...", "2": "Then we set the positive prompt..."}';
+
+    async function callAI(provider, nodes, links, base64, mime, key) {
+      const miniWorkflow = { nodes: nodes.map(n => ({id:n.id, type:n.type, title:n.title})), links };
+      const workflowText = 'Workflow JSON: ' + JSON.stringify(miniWorkflow);
+
+      if (provider === 'google') return callGoogle(base64, mime, key, workflowText);
+      if (provider === 'anthropic') return callAnthropic(base64, mime, key, workflowText);
+      if (provider === 'openai') return callOpenAI(base64, mime, key, workflowText);
+      throw new Error('Unknown provider: ' + provider);
+    }
+
+    // Text-only AI call (no image required) for VO script generation
+    async function callAITextOnly(provider, nodes, links, key) {
+      const miniWorkflow = { nodes: nodes.map(n => ({id:n.id, type:n.type, title:n.title, widgets_values: n.widgets_values?.slice(0, 3)})), links };
+      const voPrompt = 'You are writing a voice-over tutorial script for a ComfyUI workflow animation. For each node in the workflow, write a clear, natural 1-2 sentence narration explaining what this node does and why it is needed in this workflow. Speak as if you are teaching a beginner. Return ONLY a JSON object mapping node IDs (as string keys) to narration text. Example: {"1": "First, we load our Stable Diffusion checkpoint...", "2": "Next, we enter our positive prompt..."}';
+      const workflowText = 'Workflow JSON: ' + JSON.stringify(miniWorkflow);
+
+      if (provider === 'google') {
+        const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key;
+        const resp = await fetch(endpoint, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: voPrompt + '\n\n' + workflowText }] }],
+            generationConfig: { response_mime_type: 'application/json' }
+          })
+        });
+        if (!resp.ok) { const err = await resp.json(); throw new Error(err.error?.message || 'Gemini error'); }
+        const data = await resp.json();
+        return JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text);
+      } else if (provider === 'anthropic') {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514', max_tokens: 4096,
+            messages: [{ role: 'user', content: voPrompt + '\n\n' + workflowText }]
+          })
+        });
+        if (!resp.ok) { const err = await resp.json(); throw new Error(err.error?.message || 'Claude error'); }
+        const data = await resp.json();
+        const text = data.content?.[0]?.text || '';
+        const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
+        return JSON.parse(jsonMatch[1].trim());
+      } else if (provider === 'openai') {
+        const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+          body: JSON.stringify({
+            model: 'gpt-4o', response_format: { type: 'json_object' },
+            messages: [{ role: 'user', content: voPrompt + '\n\n' + workflowText }]
+          })
+        });
+        if (!resp.ok) { const err = await resp.json(); throw new Error(err.error?.message || 'OpenAI error'); }
+        const data = await resp.json();
+        return JSON.parse(data.choices?.[0]?.message?.content);
+      }
+      throw new Error('Unknown provider: ' + provider);
+    }
+
+    async function callGoogle(base64, mime, key, workflowText) {
+      const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [
+            { text: AI_PROMPT },
+            { text: workflowText },
+            { inline_data: { mime_type: mime, data: base64 } }
+          ]}],
+          generationConfig: { response_mime_type: 'application/json' }
+        })
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error?.message || 'Gemini API error'); }
+      const data = await response.json();
+      return JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text);
+    }
+
+    async function callAnthropic(base64, mime, key, workflowText) {
+      // Note: Anthropic API has CORS restrictions — requires a proxy in browser
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4096,
+          messages: [{ role: 'user', content: [
+            { type: 'text', text: AI_PROMPT + '\n\n' + workflowText },
+            { type: 'image', source: { type: 'base64', media_type: mime, data: base64 } }
+          ]}]
+        })
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error?.message || 'Claude API error'); }
+      const data = await response.json();
+      const text = data.content?.[0]?.text || '';
+      // Extract JSON from possible markdown code block
+      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
+      return JSON.parse(jsonMatch[1].trim());
+    }
+
+    async function callOpenAI(base64, mime, key, workflowText) {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + key
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          response_format: { type: 'json_object' },
+          messages: [{ role: 'user', content: [
+            { type: 'text', text: AI_PROMPT + '\n\n' + workflowText },
+            { type: 'image_url', image_url: { url: 'data:' + mime + ';base64,' + base64 } }
+          ]}]
+        })
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error?.message || 'OpenAI API error'); }
+      const data = await response.json();
+      return JSON.parse(data.choices?.[0]?.message?.content);
+    }
+
+    // ── Render Queue ───────────────────────────────────────────────────────────
+    // ── Step Preview Generator ─────────────────────────────────────────────────
+    // ── Auto-generate VO narrations from workflow JSON ────────────────────────
+    function generateDefaultNarrations(workflow) {
+      const nodes = workflow.nodes || [];
+      const links = workflow.links || [];
+      const sorted = topoSort(nodes, links);
+      const nodeMap = new Map(nodes.map(n => [n.id, n]));
+      const narrations = {};
+      const ordinal = ['First', 'Next', 'Then', 'Now', 'After that', 'Following that'];
+
+      for (let i = 0; i < sorted.length; i++) {
+        const nd = sorted[i];
+        const title = nd.title || nd.type;
+        const prefix = ordinal[Math.min(i, ordinal.length - 1)];
+        const typeName = nd.type.replace(/([A-Z])/g, ' $1').trim().toLowerCase();
+
+        // Get key widget values for context
+        let detail = '';
+        if (nd.widgets_values && nd.widgets_values.length > 0) {
+          const firstStr = nd.widgets_values.find(v => typeof v === 'string' && v.length > 3 && v.length < 60);
+          if (firstStr) detail = ` with "${firstStr}"`;
+        }
+
+        if (nd.type.includes('Checkpoint') || nd.type.includes('checkpoint')) {
+          narrations[nd.id] = `${prefix}, we add a ${title} node to load our AI model${detail}.`;
+        } else if (nd.type.includes('CLIPText') || nd.type.includes('Prompt')) {
+          const isNeg = (nd.title || '').toLowerCase().includes('neg');
+          narrations[nd.id] = `${prefix}, we create a ${isNeg ? 'negative' : 'positive'} prompt node${detail}.`;
+        } else if (nd.type.includes('KSampler') || nd.type.includes('sampler')) {
+          narrations[nd.id] = `${prefix}, we add the ${title} node which handles the diffusion sampling process${detail}.`;
+        } else if (nd.type.includes('VAE') || nd.type.includes('Decode')) {
+          narrations[nd.id] = `${prefix}, we add a ${title} node to decode the latent image into pixels.`;
+        } else if (nd.type.includes('Save') || nd.type.includes('Preview')) {
+          narrations[nd.id] = `${prefix}, we add a ${title} node to save or preview our generated output${detail}.`;
+        } else if (nd.type.includes('LoRA') || nd.type.includes('Lora')) {
+          narrations[nd.id] = `${prefix}, we load a LoRA model with the ${title} node${detail}.`;
+        } else if (nd.type.includes('ControlNet') || nd.type.includes('controlnet')) {
+          narrations[nd.id] = `${prefix}, we apply ControlNet guidance using the ${title} node${detail}.`;
+        } else if (nd.type.includes('Latent') || nd.type.includes('Empty')) {
+          narrations[nd.id] = `${prefix}, we create the initial latent space with the ${title} node.`;
+        } else if (nd.type.includes('Upscale') || nd.type.includes('upscale')) {
+          narrations[nd.id] = `${prefix}, we upscale the image using the ${title} node${detail}.`;
+        } else {
+          narrations[nd.id] = `${prefix}, we add the ${title} node to our workflow.`;
+        }
+      }
+      return narrations;
+    }
+
+    // ── Step Preview Generator (two-column with editable narration) ──────────
+    function generateStepPreview(item, fileName) {
+      if (!item._rawWorkflow) return '';
+      const workflow = item._rawWorkflow;
+      const nodes = workflow.nodes || [];
+      const links = workflow.links || [];
+      const sorted = topoSort(nodes, links);
+      const nodeMap = new Map(nodes.map(n => [n.id, n]));
+      const narrations = item.narrations || {};
+      const safeName = btoa(fileName).replace(/[^a-z0-9]/gi, '');
+
+      // Build connections by target node
+      const connByTgt = new Map();
+      for (const [, srcId, srcSlot, tgtId, tgtSlot] of links) {
+        if (!connByTgt.has(tgtId)) connByTgt.set(tgtId, []);
+        connByTgt.get(tgtId).push({ srcId, srcSlot, tgtId, tgtSlot });
+      }
+
+      // Calculate cumulative timestamps
+      let cumTime = 0;
+      const baseDly = delay;
+      let step = 0;
+      let html = '';
+
+      // Header
+      html += `<div class="preview-header">
+        <div class="preview-header-col col-step">Step</div>
+        <div class="preview-header-col col-script">VO Script</div>
+        <div class="preview-header-col col-time">Time</div>
+      </div>`;
+
+      // Step 0
+      html += `<div class="preview-row node-row">
+        <div class="preview-col-step">
+          <div class="preview-step-badge">0</div>
+          <div class="preview-step-label" style="display:flex;align-items:center;gap:6px;"><i data-lucide="monitor-off" style="width:14px;height:14px;color:#aaa;"></i> Clear canvas</div>
+        </div>
+        <div class="preview-col-script">
+          <textarea class="preview-narration" data-file="${safeName}" data-nodeid="__clear" rows="1" placeholder="Opening narration...">${narrations['__clear'] || ''}</textarea>
+        </div>
+        <div class="preview-col-time">${formatTime(cumTime)}<div class="step-dur">${formatDur(500)}</div></div>
+      </div>`;
+      cumTime += 500;
+
+      // Section: Nodes
+      html += `<div class="preview-row section-row"><div class="preview-section-bar">📦 Nodes</div></div>`;
+
+      for (const nd of sorted) {
+        step++;
+        const title = nd.title || nd.type;
+        const narr = narrations[nd.id] || '';
+        const wordCount = narr ? narr.split(' ').length : 0;
+        const speechMs = narr ? (wordCount / 2.5) * 1000 : 0;
+        const stepTime = useAITiming && narr ? (baseDly + speechMs + baseDly) : baseDly;
+
+        html += `<div class="preview-row node-row">
+          <div class="preview-col-step">
+            <div class="preview-step-badge">${step}</div>
+            <div class="preview-step-label">
+              <i data-lucide="square" style="width:14px;height:14px;color:#aaa;display:inline-block;vertical-align:-2px;margin-right:2px;"></i>
+              <strong>${title}</strong>
+              <span class="step-type">(${nd.type})</span>
+            </div>
+          </div>
+          <button class="delete-step-btn" data-file="${safeName}" data-nodeid="${nd.id}" title="Remove Step"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
+          <div class="preview-col-script">
+            <textarea class="preview-narration" data-file="${safeName}" data-nodeid="${nd.id}" rows="2" placeholder="Narration for this step...">${narr}</textarea>
+          </div>
+          <div class="preview-col-time">${formatTime(cumTime)}<div class="step-dur">${formatDur(stepTime)}</div></div>
+        </div>`;
+        cumTime += stepTime;
+
+        // Connections
+        const conns = connByTgt.get(nd.id) || [];
+        for (const c of conns) {
+          step++;
+          const srcNode = nodeMap.get(c.srcId);
+          const srcName = srcNode ? (srcNode.title || srcNode.type) : 'Node ' + c.srcId;
+          const linkKey = `link_${c.srcId}_${c.srcSlot}_${c.tgtId}_${c.tgtSlot}`;
+          const linkNarr = narrations[linkKey] || '';
+          const linkWords = linkNarr ? linkNarr.split(' ').length : 0;
+          const linkSpeechMs = linkNarr ? (linkWords / 2.5) * 1000 : 0;
+          const linkTime = useAITiming && linkNarr ? (baseDly + linkSpeechMs + baseDly) : 600;
+
+          html += `<div class="preview-row link-row">
+            <div class="preview-col-step">
+              <div class="preview-step-badge">${step}</div>
+              <div class="preview-step-label">
+                <i data-lucide="link" style="width:14px;height:14px;color:#aaa;display:inline-block;vertical-align:-2px;margin-right:2px;flex-shrink:0;"></i>
+                <span style="word-break:break-all;">${srcName}[${c.srcSlot}] <span class="step-arrow">→</span> ${title}[${c.tgtSlot}]</span>
+              </div>
+            </div>
+            <button class="delete-step-btn" data-file="${safeName}" data-linkid="${linkKey}" title="Remove Step"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
+            <div class="preview-col-script">
+              <textarea class="preview-narration" data-file="${safeName}" data-nodeid="${linkKey}" rows="1" placeholder="Connection narration...">${linkNarr}</textarea>
+            </div>
+            <div class="preview-col-time">${formatTime(cumTime)}<div class="step-dur">${formatDur(linkTime)}</div></div>
+          </div>`;
+          cumTime += linkTime;
+        }
+      }
+
+      // Final steps
+      const skipZoom = item.deletedMetaSteps?.includes('__zoom');
+      const skipQueue = item.deletedMetaSteps?.includes('__queue');
+
+      html += `<div class="preview-row section-row"><div class="preview-section-bar" style="display:flex;align-items:center;gap:6px;"><i data-lucide="flag" style="width:14px;height:14px;"></i> Finalize</div></div>`;
+      
+      if (!skipZoom) {
+        html += `<div class="preview-row node-row">
+          <div class="preview-col-step">
+            <div class="preview-step-badge" style="background:transparent;border:1px solid var(--border);color:var(--accent);">-</div>
+            <div class="preview-step-label">
+              <i data-lucide="maximize" style="width:14px;height:14px;color:#aaa;display:inline-block;vertical-align:-2px;margin-right:2px;"></i> Zoom to fit
+            </div>
+          </div>
+          <button class="delete-step-btn" data-file="${safeName}" data-metaid="__zoom" title="Remove Step"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
+          <div class="preview-col-script">
+            <textarea class="preview-narration" data-file="${safeName}" data-nodeid="__zoom" rows="1" placeholder="Zoom narration...">${narrations['__zoom'] || ''}</textarea>
+          </div>
+          <div class="preview-col-time">${formatTime(cumTime)}<div class="step-dur">${formatDur(2000)}</div></div>
+        </div>`;
+        cumTime += 2000;
+      }
+
+      if (!skipQueue) {
+        html += `<div class="preview-row node-row">
+          <div class="preview-col-step">
+            <div class="preview-step-badge" style="background:transparent;border:1px solid var(--border);color:var(--accent);">-</div>
+            <div class="preview-step-label">
+              <i data-lucide="play" style="width:14px;height:14px;color:#aaa;display:inline-block;vertical-align:-2px;margin-right:2px;"></i> Queue & execute
+            </div>
+          </div>
+          <button class="delete-step-btn" data-file="${safeName}" data-metaid="__queue" title="Remove Step"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
+          <div class="preview-col-script">
+            <textarea class="preview-narration" data-file="${safeName}" data-nodeid="__queue" rows="1" placeholder="Queue narration...">${narrations['__queue'] || ''}</textarea>
+          </div>
+          <div class="preview-col-time">${formatTime(cumTime)}</div>
+        </div>`;
+      }
+
+      // Actions bar
+      const hasKey = !!(aiKey || localConfig?.apiKey);
+      const hasNarr = narrations && Object.keys(narrations).some(k => !k.startsWith('link_') && !k.startsWith('__'));
+      html += `<div class="preview-actions">
+        <button class="btn btn-gen-vo" onclick="autoGenNarrations('${fileName}')" title="Generate from node types (no API needed)" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#d97706);"><i data-lucide="zap" style="width:14px;height:14px;margin-right:6px;"></i> Quick Script</button>
+        ${hasKey ? `<button class="btn btn-gen-vo" onclick="aiGenNarrations('${fileName}')" title="Use AI to write better narrations" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7c3aed,#ec4899);"><i data-lucide="bot" style="width:14px;height:14px;margin-right:6px;"></i> AI Script</button>` : ''}
+        ${hasKey ? `<button class="btn btn-gen-vo" onclick="aiGenConnNarrations('${fileName}')" title="Generate AI narrations for connection steps" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#059669,#0891b2);${hasNarr ? '' : 'opacity:0.35;pointer-events:none;'}"${hasNarr ? '' : ' disabled'}><i data-lucide="link" style="width:14px;height:14px;margin-right:6px;"></i> + Connections</button>` : ''}
+        <button class="btn btn-gen-vo" onclick="exportVOScript('${fileName}')" title="Export VO script as .txt file" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#64748b,#475569);${hasNarr ? '' : 'opacity:0.35;pointer-events:none;'}"${hasNarr ? '' : ' disabled'}><i data-lucide="file-text" style="width:14px;height:14px;margin-right:6px;"></i> Export .txt</button>
+        <span style="color:var(--muted);font-size:11px;margin-left:auto;padding-top:4px;">Total: ~${formatTime(cumTime)}</span>
+      </div>`;
+
+      return html;
+    }
+
+    function formatDur(ms) {
+      if (ms < 1000) return ms + 'ms';
+      return (ms / 1000).toFixed(1) + 's';
+    }
+
+    function formatTime(ms) {
+      const s = Math.floor(ms / 1000);
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return m > 0 ? `${m}:${String(sec).padStart(2, '0')}` : `0:${String(sec).padStart(2, '0')}`;
+    }
+
+    window.loadExampleWorkflow = (short = false) => {
+      const exampleJSON = {"id":"00000000-0000-0000-0000-000000000000","revision":0,"last_node_id":7,"last_link_id":9,"nodes":[{"id":2,"type":"CLIPTextEncode","pos":[413,389],"size":[425.27801513671875,180.6060791015625],"flags":{},"order":2,"mode":0,"inputs":[{"localized_name":"clip","name":"clip","type":"CLIP","link":1},{"localized_name":"text","name":"text","type":"STRING","widget":{"name":"text"},"link":null}],"outputs":[{"localized_name":"CONDITIONING","name":"CONDITIONING","type":"CONDITIONING","links":[6]}],"properties":{"Node name for S&R":"CLIPTextEncode"},"widgets_values":["text, watermark"]},{"id":4,"type":"EmptyLatentImage","pos":[473,609],"size":[315,106],"flags":{},"order":0,"mode":0,"inputs":[{"localized_name":"width","name":"width","type":"INT","widget":{"name":"width"},"link":null},{"localized_name":"height","name":"height","type":"INT","widget":{"name":"height"},"link":null},{"localized_name":"batch_size","name":"batch_size","type":"INT","widget":{"name":"batch_size"},"link":null}],"outputs":[{"localized_name":"LATENT","name":"LATENT","type":"LATENT","links":[4]}],"properties":{"Node name for S&R":"EmptyLatentImage"},"widgets_values":[512,512,1]},{"id":5,"type":"KSampler","pos":[863,186],"size":[315,262],"flags":{},"order":4,"mode":0,"inputs":[{"localized_name":"model","name":"model","type":"MODEL","link":3},{"localized_name":"positive","name":"positive","type":"CONDITIONING","link":5},{"localized_name":"negative","name":"negative","type":"CONDITIONING","link":6},{"localized_name":"latent_image","name":"latent_image","type":"LATENT","link":4},{"localized_name":"seed","name":"seed","type":"INT","widget":{"name":"seed"},"link":null},{"localized_name":"steps","name":"steps","type":"INT","widget":{"name":"steps"},"link":null},{"localized_name":"cfg","name":"cfg","type":"FLOAT","widget":{"name":"cfg"},"link":null},{"localized_name":"sampler_name","name":"sampler_name","type":"COMBO","widget":{"name":"sampler_name"},"link":null},{"localized_name":"scheduler","name":"scheduler","type":"COMBO","widget":{"name":"scheduler"},"link":null},{"localized_name":"denoise","name":"denoise","type":"FLOAT","widget":{"name":"denoise"},"link":null}],"outputs":[{"localized_name":"LATENT","name":"LATENT","type":"LATENT","links":[7]}],"properties":{"Node name for S&R":"KSampler"},"widgets_values":[778847685464853,"randomize",20,8,"euler","normal",1]},{"id":6,"type":"VAEDecode","pos":[1209,188],"size":[210,46],"flags":{},"order":5,"mode":0,"inputs":[{"localized_name":"samples","name":"samples","type":"LATENT","link":7},{"localized_name":"vae","name":"vae","type":"VAE","link":8}],"outputs":[{"localized_name":"IMAGE","name":"IMAGE","type":"IMAGE","links":[9]}],"properties":{"Node name for S&R":"VAEDecode"},"widgets_values":[]},{"id":7,"type":"SaveImage","pos":[1451,189],"size":[210,270],"flags":{},"order":6,"mode":0,"inputs":[{"localized_name":"images","name":"images","type":"IMAGE","link":9},{"localized_name":"filename_prefix","name":"filename_prefix","type":"STRING","widget":{"name":"filename_prefix"},"link":null}],"outputs":[],"properties":{},"widgets_values":["ComfyUI"]},{"id":3,"type":"CLIPTextEncode","pos":[415,186],"size":[422.84503173828125,164.31304931640625],"flags":{},"order":3,"mode":0,"inputs":[{"localized_name":"clip","name":"clip","type":"CLIP","link":2},{"localized_name":"text","name":"text","type":"STRING","widget":{"name":"text"},"link":null}],"outputs":[{"localized_name":"CONDITIONING","name":"CONDITIONING","type":"CONDITIONING","links":[5]}],"properties":{"Node name for S&R":"CLIPTextEncode"},"widgets_values":["beautiful scenery nature glass bottle landscape, purple galaxy bottle,"]},{"id":1,"type":"CheckpointLoaderSimple","pos":[26,474],"size":[315,98],"flags":{},"order":1,"mode":0,"inputs":[{"localized_name":"ckpt_name","name":"ckpt_name","type":"COMBO","widget":{"name":"ckpt_name"},"link":null}],"outputs":[{"localized_name":"MODEL","name":"MODEL","type":"MODEL","links":[3]},{"localized_name":"CLIP","name":"CLIP","type":"CLIP","links":[1,2]},{"localized_name":"VAE","name":"VAE","type":"VAE","links":[8]}],"properties":{"Node name for S&R":"CheckpointLoaderSimple"},"widgets_values":["v1-5-pruned-emaonly.ckpt"]}],"links":[[1,1,1,2,0,"CLIP"],[2,1,1,3,0,"CLIP"],[3,1,0,5,0,"MODEL"],[4,4,0,5,3,"LATENT"],[5,3,0,5,1,"CONDITIONING"],[6,2,0,5,2,"CONDITIONING"],[7,5,0,6,0,"LATENT"],[8,1,2,6,1,"VAE"],[9,6,0,7,0,"IMAGE"]],"groups":[],"config":{},"extra":{"ds":{"scale":0.6830134553650705,"offset":[998.6332739135745,243.3337332336428]}},"version":0.4};
+      if (short) {
+        exampleJSON.nodes = exampleJSON.nodes.filter(n => n.id === 1 || n.id === 2 || n.id === 3);
+        const validIds = new Set([1, 2, 3]);
+        exampleJSON.links = exampleJSON.links.filter(l => validIds.has(l[1]) && validIds.has(l[3]));
+      }
+      const blob = new Blob([JSON.stringify(exampleJSON)], { type: 'application/json' });
+      const file = new File([blob], short ? 'example-short.json' : 'example-workflow.json', { type: 'application/json' });
+      processFile(file);
+      showToast('📂 Example workflow loaded!');
+    };
+
+    window.exportVOScript = (fileName) => {
+      const item = files.get(fileName);
+      if (!item?._rawWorkflow) return;
+      const workflow = item._rawWorkflow;
+      const nodes = workflow.nodes || [];
+      const links = workflow.links || [];
+      const narrations = item.narrations || {};
+      const useAIT = useAITiming;
+      const baseDly = delay;
+
+      const sorted = [...nodes].sort((a, b) => (a.id - b.id));
+      const nodeMap = new Map(nodes.map(n => [n.id, n]));
+      const connByTgt = new Map();
+      for (const [, , srcId, srcSlot, tgtId, tgtSlot] of links) {
+        if (!connByTgt.has(tgtId)) connByTgt.set(tgtId, []);
+        connByTgt.get(tgtId).push({ srcId, srcSlot, tgtId, tgtSlot });
+      }
+
+      let lines = [];
+      let cumTime = 0;
+      let step = 0;
+
+      lines.push(`VO SCRIPT: ${fileName}`);
+      lines.push(`${'='.repeat(50)}`);
+      lines.push('');
+
+      // Clear canvas
+      step++;
+      lines.push(`[${formatTime(cumTime)}] Step ${step}: 🧹 Clear canvas (500ms)`);
+      if (narrations['__clear']) lines.push(`  "${narrations['__clear']}"`);
+      lines.push('');
+      cumTime += 500;
+
+      lines.push('--- NODES ---');
+      lines.push('');
+
+      for (const nd of sorted) {
+        step++;
+        const title = nd.title || nd.type;
+        const narr = narrations[nd.id] || '';
+        const wordCount = narr ? narr.split(' ').length : 0;
+        const speechMs = narr ? (wordCount / 2.5) * 1000 : 0;
+        const stepTime = useAIT && narr ? (baseDly + speechMs + baseDly) : baseDly;
+
+        lines.push(`[${formatTime(cumTime)}] Step ${step}: ➕ ${title} (${nd.type}) — ${formatDur(stepTime)}`);
+        if (narr) lines.push(`  "${narr}"`);
+        lines.push('');
+        cumTime += stepTime;
+
+        const conns = connByTgt.get(nd.id) || [];
+        for (const c of conns) {
+          step++;
+          const srcNode = nodeMap.get(c.srcId);
+          const srcName = srcNode ? (srcNode.title || srcNode.type) : 'Node ' + c.srcId;
+          const linkKey = `link_${c.srcId}_${c.srcSlot}_${c.tgtId}_${c.tgtSlot}`;
+          const linkNarr = narrations[linkKey] || '';
+          const linkWords = linkNarr ? linkNarr.split(' ').length : 0;
+          const linkSpeechMs = linkNarr ? (linkWords / 2.5) * 1000 : 0;
+          const linkTime = useAIT && linkNarr ? (baseDly + linkSpeechMs + baseDly) : 600;
+
+          lines.push(`[${formatTime(cumTime)}] Step ${step}: 🔗 ${srcName}[${c.srcSlot}] → ${title}[${c.tgtSlot}] — ${formatDur(linkTime)}`);
+          if (linkNarr) lines.push(`  "${linkNarr}"`);
+          lines.push('');
+          cumTime += linkTime;
+        }
+      }
+
+      lines.push('--- FINALIZE ---');
+      lines.push('');
+      lines.push(`[${formatTime(cumTime)}] 📐 Zoom to fit — ${formatDur(2000)}`);
+      if (narrations['__zoom']) lines.push(`  "${narrations['__zoom']}"`);
+      cumTime += 2000;
+      lines.push(`[${formatTime(cumTime)}] ▶️ Queue & execute`);
+      if (narrations['__queue']) lines.push(`  "${narrations['__queue']}"`);
+      lines.push('');
+      lines.push(`${'='.repeat(50)}`);
+      lines.push(`Total Duration: ~${formatTime(cumTime)}`);
+
+      const txt = lines.join('\n');
+      const blob = new Blob([txt], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = fileName.replace('.json', '') + '-vo-script.txt';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      showToast('📄 VO script exported!');
+    };
+
+    window.autoGenNarrations = (fileName) => {
+      const item = files.get(fileName);
+      if (!item?._rawWorkflow) return;
+      item.narrations = generateDefaultNarrations(item._rawWorkflow);
+      item.script = generateScript(item._rawWorkflow, delay, fileName, item.narrations, item.deletedMetaSteps);
+      activePreviewFile = fileName;
+      renderQueue();
+      showToast('⚡ Quick VO script generated!');
+    };
+
+    window.aiGenNarrations = async (fileName) => {
+      const item = files.get(fileName);
+      if (!item?._rawWorkflow) return;
+      const key = aiKey || localConfig?.apiKey;
+      if (!key) { showToast('⚠️ No API key configured'); return; }
+      const workflow = item._rawWorkflow;
+      const nodes = workflow.nodes || [];
+      const links = workflow.links || [];
+      try {
+        showToast('🤖 Generating AI narration script...');
+        const narrations = await callAITextOnly(aiProvider, nodes, links, key);
+        item.narrations = { ...(item.narrations || {}), ...narrations };
+        item.script = generateScript(item._rawWorkflow, delay, fileName, item.narrations, item.deletedMetaSteps);
+        activePreviewFile = fileName;
+        renderQueue();
+        showToast('✨ AI VO script ready!');
+      } catch (err) {
+        console.error('AI VO Error:', err);
+        showToast('❌ AI generation failed: ' + err.message);
+      }
+    };
+
+    window.aiGenConnNarrations = async (fileName) => {
+      const item = files.get(fileName);
+      if (!item?._rawWorkflow) return;
+      const key = aiKey || localConfig?.apiKey;
+      if (!key) { showToast('⚠️ No API key configured'); return; }
+      const workflow = item._rawWorkflow;
+      const nodes = workflow.nodes || [];
+      const links = workflow.links || [];
+      const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+      // Build connection descriptions for AI
+      const connDescs = links.map(([, srcId, srcSlot, tgtId, tgtSlot]) => {
+        const src = nodeMap.get(srcId);
+        const tgt = nodeMap.get(tgtId);
+        const srcName = src ? (src.title || src.type) : 'Node ' + srcId;
+        const tgtName = tgt ? (tgt.title || tgt.type) : 'Node ' + tgtId;
+        return { key: `link_${srcId}_${srcSlot}_${tgtId}_${tgtSlot}`, from: srcName, fromSlot: srcSlot, to: tgtName, toSlot: tgtSlot };
+      });
+
+      const prompt = `You are writing voice-over tutorial narrations for the CONNECTION steps in a ComfyUI workflow animation. These are the moments when the user drags a wire from one node's output to another node's input. For each connection, write a clear, natural 1 sentence explaining WHY these nodes need to be connected (what data flows between them). Return ONLY a JSON object mapping connection keys to narration text. Here are the connections:\n${JSON.stringify(connDescs)}`;
+
+      try {
+        showToast('🔗 Generating connection narrations...');
+        let result;
+        if (aiProvider === 'google') {
+          const endpoint = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + key;
+          const resp = await fetch(endpoint, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { response_mime_type: 'application/json' }
+            })
+          });
+          if (!resp.ok) { const err = await resp.json(); throw new Error(err.error?.message || 'Gemini error'); }
+          const data = await resp.json();
+          result = JSON.parse(data.candidates?.[0]?.content?.parts?.[0]?.text);
+        } else if (aiProvider === 'anthropic') {
+          const resp = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+            body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 4096, messages: [{ role: 'user', content: prompt }] })
+          });
+          if (!resp.ok) { const err = await resp.json(); throw new Error(err.error?.message || 'Claude error'); }
+          const data = await resp.json();
+          const text = data.content?.[0]?.text || '';
+          const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
+          result = JSON.parse(jsonMatch[1].trim());
+        } else {
+          const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+            body: JSON.stringify({ model: 'gpt-4o', response_format: { type: 'json_object' }, messages: [{ role: 'user', content: prompt }] })
+          });
+          if (!resp.ok) { const err = await resp.json(); throw new Error(err.error?.message || 'OpenAI error'); }
+          const data = await resp.json();
+          result = JSON.parse(data.choices?.[0]?.message?.content);
+        }
+        item.narrations = { ...(item.narrations || {}), ...result };
+        item.script = generateScript(item._rawWorkflow, delay, fileName, item.narrations, item.deletedMetaSteps);
+        activePreviewFile = fileName;
+        renderQueue();
+        showToast('🔗 Connection narrations ready!');
+      } catch (err) {
+        console.error('AI Connection VO Error:', err);
+        showToast('❌ Connection narration failed: ' + err.message);
+      }
+    };
+
+    // ── Render Queue ───────────────────────────────────────────────────────────
+    let activePreviewFile = null;
+
+    function renderQueue() {
+      const list = document.getElementById('queue-list');
+      if (files.size === 0) {
+        list.innerHTML = '<div class="empty-queue">No files yet — drop some workflows above ☝️</div>';
+        showPreviewSidebar(null);
+        return;
+      }
+      list.innerHTML = '';
+      for (const [name, item] of files) {
+        const card = document.createElement('div');
+        card.className = 'file-card';
+        card.id = 'card-' + btoa(name).replace(/[^a-z0-9]/gi, '');
+        const safeId = btoa(name).replace(/[^a-z0-9]/gi, '');
+        const isActive = activePreviewFile === name;
+
+        if (item.error) {
+          card.innerHTML = `
+            <div class="file-icon">❌</div>
+            <div class="file-info">
+              <div class="file-name">${name}</div>
+              <div class="file-meta" style="color:#f87171">${item.error}</div>
+            </div>
+            <span class="file-status status-error">Error</span>
+            <div class="file-actions">
+              <button class="btn btn-remove" onclick="removeFile('${name}')">✕</button>
+            </div>
+          `;
+        } else {
+          card.innerHTML = `
+            <div class="file-icon">${item.narrations ? '<i data-lucide="mic" style="width:18px;height:18px;margin-top:2px;"></i>' : '<i data-lucide="file-text" style="width:18px;height:18px;margin-top:2px;"></i>'}</div>
+            <div class="file-info">
+              <div class="file-name">${name}</div>
+              <div class="file-meta">${item.nodeCount} nodes · ${item.linkCount} links · ${delay}ms delay${item.narrations ? ' · <span style="color:var(--accent)">AI Narrated</span>' : ''}</div>
+            </div>
+            <span class="file-status status-done">Ready</span>
+            <div class="file-actions">
+              <button class="btn btn-copy" id="copy-${safeId}" onclick="copyScript('${name}')">📋 Copy</button>
+              <button class="btn btn-download" onclick="downloadScript('${name}')">⬇ Save</button>
+              <button class="btn btn-remove" onclick="removeFile('${name}')">✕</button>
+            </div>
+          `;
+        }
+        list.appendChild(card);
+      }
+      if (window.lucide) window.lucide.createIcons();
+      // Refresh sidebar if active file still exists
+      if (activePreviewFile && files.has(activePreviewFile)) {
+        showPreviewSidebar(activePreviewFile);
+      }
+    }
+
+    function showPreviewSidebar(fileName) {
+      const sidebar = document.getElementById('preview-sidebar');
+      const empty = document.getElementById('preview-empty');
+      if (!fileName || !files.has(fileName)) {
+        sidebar.style.display = 'none';
+        empty.style.display = 'flex';
+        activePreviewFile = null;
+        return;
+      }
+      activePreviewFile = fileName;
+      const item = files.get(fileName);
+      empty.style.display = 'none';
+      sidebar.style.display = 'block';
+      sidebar.innerHTML = `
+        <div style="position:sticky;top:0;z-index:3;background:var(--surface);padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;display:flex;align-items:center;">${item.narrations ? '<i data-lucide="mic" style="width:18px;height:18px;"></i>' : '<i data-lucide="file-text" style="width:18px;height:18px;"></i>'}</span>
+          <div>
+            <div style="font-weight:600;font-size:14px;">${fileName}</div>
+            <div style="font-size:11px;color:var(--muted);">${item.nodeCount} nodes · ${item.linkCount} links</div>
+          </div>
+        </div>
+        ${generateStepPreview(item, fileName)}
+      `;
+      requestAnimationFrame(() => {
+        autoResizeAll();
+        if (window.lucide) window.lucide.createIcons();
+      });
+    }
+
+    // ── Narration Edit Handler (delegated on sidebar) ────────────────────────
+    function autoResizeTextarea(el) {
+      if (!el) return;
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+
+    function autoResizeAll() {
+      document.querySelectorAll('.preview-narration').forEach(autoResizeTextarea);
+    }
+
+    document.getElementById('preview-sidebar').addEventListener('input', (e) => {
+      if (!e.target.classList.contains('preview-narration')) return;
+      autoResizeTextarea(e.target); // instant resize
+      const nodeId = e.target.dataset.nodeid;
+      if (!activePreviewFile) return;
+      const item = files.get(activePreviewFile);
+      if (!item) return;
+      if (!item.narrations) item.narrations = {};
+      const val = e.target.value.trim();
+      if (val) item.narrations[nodeId] = val;
+      else delete item.narrations[nodeId];
+      clearTimeout(item._editTimer);
+      item._editTimer = setTimeout(() => {
+        item.script = generateScript(item._rawWorkflow, delay, activePreviewFile, item.narrations, item.deletedMetaSteps);
+        // Re-render sidebar to update timestamps, preserving focus
+        const cursorPos = e.target.selectionStart;
+        const focusId = nodeId;
+        showPreviewSidebar(activePreviewFile);
+        const el = document.querySelector(`.preview-narration[data-nodeid="${focusId}"]`);
+        if (el) { el.focus(); el.selectionStart = el.selectionEnd = cursorPos; }
+      }, 400);
+    });
+
+    // Handle delete step buttons
+    document.getElementById('preview-sidebar').addEventListener('click', (e) => {
+      const btn = e.target.closest('.delete-step-btn');
+      if (!btn || !activePreviewFile) return;
+      const item = files.get(activePreviewFile);
+      if (!item || !item._rawWorkflow) return;
+      
+      const nodeId = btn.dataset.nodeid;
+      const linkId = btn.dataset.linkid;
+      
+      if (nodeId) {
+        const nid = parseInt(nodeId, 10);
+        item._rawWorkflow.nodes = item._rawWorkflow.nodes.filter(n => n.id !== nid);
+        // Remove links connected to this node
+        item._rawWorkflow.links = item._rawWorkflow.links.filter(l => l[1] !== nid && l[3] !== nid);
+      } else if (linkId) {
+        // linkKey format: link_srcId_srcSlot_tgtId_tgtSlot
+        const parts = linkId.split('_');
+        const sid = parseInt(parts[1], 10), tid = parseInt(parts[3], 10);
+        item._rawWorkflow.links = item._rawWorkflow.links.filter(l => !(l[1] === sid && l[3] === tid));
+      }
+      
+      item.nodeCount = item._rawWorkflow.nodes.length;
+      item.linkCount = item._rawWorkflow.links.length;
+      item.script = generateScript(item._rawWorkflow, delay, activePreviewFile, item.narrations, item.deletedMetaSteps);
+      renderQueue(); // Update queue UI
+      showPreviewSidebar(activePreviewFile); // Refresh sidebar
+    });
+
+    window.togglePreview = (name) => {
+      if (activePreviewFile === name) {
+        // Deselect
+        showPreviewSidebar(null);
+      } else {
+        showPreviewSidebar(name);
+      }
+      // Update button states
+      for (const [fname] of files) {
+        const sid = btoa(fname).replace(/[^a-z0-9]/gi, '');
+        const btn = document.getElementById('pbtn-' + sid);
+        if (btn) {
+          const isActive = activePreviewFile === fname;
+          btn.classList.toggle('active', isActive);
+          btn.textContent = isActive ? '👁 Editing' : '👁 Preview';
+        }
+      }
+    };
+
+    // ── Actions ────────────────────────────────────────────────────────────────
+    window.copyScript = async (name) => {
+      const item = files.get(name);
+      if (!item?.script) return;
+      await navigator.clipboard.writeText(item.script);
+      const id = 'copy-' + btoa(name).replace(/[^a-z0-9]/gi, '');
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.textContent = '✅ Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = '📋 Copy'; btn.classList.remove('copied'); }, 2000);
+      }
+      showToast(`Copied script for ${name}!`);
+    };
+
+    window.downloadScript = (name) => {
+      const item = files.get(name);
+      if (!item?.script) return;
+      const blob = new Blob([item.script], { type: 'text/javascript' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name.replace('.json', '') + '-replay.js';
+      a.click();
+    };
+
+    window.removeFile = (name) => {
+      files.delete(name);
+      renderQueue();
+    };
+
+    function showToast(msg) {
+      document.querySelector('.toast')?.remove();
+      const t = document.createElement('div');
+      t.className = 'toast'; 
+      
+      const iconMap = {
+        '📂': 'folder-open', '📄': 'file-text', '⚡': 'zap', '🤖': 'bot',
+        '✨': 'sparkles', '❌': 'x-circle', '🔗': 'link', '⚠️': 'alert-triangle'
+      };
+      let htmlMsg = msg;
+      for (const [emj, id] of Object.entries(iconMap)) {
+        if (msg.includes(emj)) {
+          htmlMsg = htmlMsg.replace(emj, `<i data-lucide="${id}" style="width:16px;height:16px;flex-shrink:0;margin-top:1px;"></i>`);
+          t.style.display = 'flex'; t.style.alignItems = 'flex-start'; t.style.gap = '8px';
+        }
+      }
+      
+      t.innerHTML = htmlMsg;
+      document.body.appendChild(t);
+      if (window.lucide) window.lucide.createIcons({root: t});
+      setTimeout(() => t.remove(), 2500);
+    }
+
+    renderQueue();
+
+    // ── Image Handling ────────────────────────────────────────────────────────
+    const imageZone = document.getElementById('drop-zone');
+    const imagePreview = document.getElementById('image-preview');
+    const imagePromptUI = document.getElementById('drop-prompt');
+    const clearImageBtn = document.getElementById('clear-image');
+    const aiProviderSelect = document.getElementById('ai-provider');
+    const aiKeyInput = document.getElementById('ai-key');
+    const corsNote = document.getElementById('cors-note');
+    const apiKeyHint = document.getElementById('api-key-hint');
+    const aiTimingToggle = document.getElementById('ai-timing-toggle');
+    const cameraPanToggle = document.getElementById('camera-pan-toggle');
+    const mp4Toggle = document.getElementById('mp4-toggle');
+    const nodePanelToggle = document.getElementById('node-panel-toggle');
+
+    function handleImage(file) {
+      if (!file.type.startsWith('image/')) return;
+      activeImageMime = file.type;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        activeImageBase64 = e.target.result.split(',')[1];
+        imagePreview.src = e.target.result;
+        imagePreview.style.display = 'block';
+        clearImageBtn.style.display = 'block';
+        showToast('Image attached for AI reference');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    clearImageBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      activeImageBase64 = null; activeImageMime = null;
+      imagePreview.style.display = 'none';
+      clearImageBtn.style.display = 'none';
+    });
+
+    window.addEventListener('paste', e => {
+      const item = [...e.clipboardData.items].find(i => i.type.startsWith('image/'));
+      if (item) handleImage(item.getAsFile());
+    });
+
+    // ── Unified Drop Zone Handler ────────────────────────────────────────────
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      handleDroppedFiles([...e.target.files]);
+      fileInput.value = '';
+    });
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault(); dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault(); dropZone.classList.remove('drag-over');
+      handleDroppedFiles([...e.dataTransfer.files]);
+    });
+
+    function handleDroppedFiles(fileList) {
+      const jsonFiles = fileList.filter(f => f.name.endsWith('.json'));
+      const imageFiles = fileList.filter(f => f.type.startsWith('image/'));
+      if (jsonFiles.length > 0) {
+        jsonFiles.forEach(f => processFile(f));
+        showToast(`Processing ${jsonFiles.length} workflow${jsonFiles.length > 1 ? 's' : ''}...`);
+      }
+      if (imageFiles.length > 0) {
+        handleImage(imageFiles[0]);
+      }
+      if (jsonFiles.length === 0 && imageFiles.length === 0) {
+        showToast('Drop .json workflows or image files');
+      }
+    }
+
+    // ── Delay Sync ────────────────────────────────────────────────────────────
+    const delayRange = document.getElementById('delay-range');
+    const delayInput = document.getElementById('delay-input');
+
+    function updateDelay(val) {
+      delay = parseInt(val) || 1000;
+      delayRange.value = delay;
+      delayInput.value = delay;
+      for (const [name, item] of files) {
+        if (item._rawWorkflow) {
+          item.script = generateScript(item._rawWorkflow, delay, name, item.narrations, item.deletedMetaSteps);
+        }
+      }
+      renderQueue();
+    }
+
+    delayRange.addEventListener('input', e => updateDelay(e.target.value));
+    delayInput.addEventListener('input', e => updateDelay(e.target.value));
+
+    // ── AI Provider & Key ─────────────────────────────────────────────────────
+    const keyHints = {
+      google: 'Get a key from <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent);text-decoration:none;">AI Studio</a>',
+      anthropic: 'Get a key from <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--accent);text-decoration:none;">Anthropic Console</a>',
+      openai: 'Get a key from <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--accent);text-decoration:none;">OpenAI Platform</a>',
+    };
+
+    function updateProviderUI() {
+      if (apiKeyHint) apiKeyHint.innerHTML = keyHints[aiProvider] || '';
+      if (corsNote) corsNote.style.display = (aiProvider !== 'google') ? 'block' : 'none';
+    }
+    updateProviderUI();
+
+    if (aiProviderSelect) {
+      aiProviderSelect.addEventListener('change', e => {
+        aiProvider = e.target.value;
+        localStorage.setItem('ai_provider', aiProvider);
+        updateProviderUI();
+      });
+    }
+
+    if (aiKeyInput) {
+      aiKeyInput.addEventListener('change', e => {
+        aiKey = e.target.value;
+        localStorage.setItem('ai_key', aiKey);
+      });
+    }
+    cameraPanToggle.addEventListener('change', e => {
+      useCameraPan = e.target.checked;
+      for (const [name, item] of files) {
+        if (item._rawWorkflow) {
+          item.script = generateScript(item._rawWorkflow, delay, name, item.narrations, item.deletedMetaSteps);
+        }
+      }
+      renderQueue();
+    });
+
+    mp4Toggle.addEventListener('change', e => {
+      convertToMp4 = e.target.checked;
+      for (const [name, item] of files) {
+        if (item._rawWorkflow) {
+          item.script = generateScript(item._rawWorkflow, delay, name, item.narrations, item.deletedMetaSteps);
+        }
+      }
+      renderQueue();
+    });
+
+    nodePanelToggle.addEventListener('change', e => {
+      useNodePanel = e.target.checked;
+      for (const [name, item] of files) {
+        if (item._rawWorkflow) {
+          item.script = generateScript(item._rawWorkflow, delay, name, item.narrations, item.deletedMetaSteps);
+        }
+      }
+      renderQueue();
+    });
+
+    const captionsToggle = document.getElementById('captions-toggle');
+    captionsToggle.addEventListener('change', e => {
+      showCaptions = e.target.checked;
+      regenerateScripts();
+    });
+
+    const xmlToggle = document.getElementById('xml-toggle');
+    xmlToggle.addEventListener('change', e => {
+      exportXml = e.target.checked;
+      regenerateScripts();
+    });
+
+    const recordVideoToggle = document.getElementById('record-video-toggle');
+    recordVideoToggle.addEventListener('change', e => {
+      recordVideo = e.target.checked;
+      regenerateScripts();
+    });
+
+    const showDebugLogToggle = document.getElementById('show-debug-log-toggle');
+    showDebugLogToggle.addEventListener('change', e => {
+      showDebugLog = e.target.checked;
+      regenerateScripts();
+    });
+
+    // ── Cursor Controls ──────────────────────────────────────────────────────
+    const cursorStyleSelect = document.getElementById('cursor-style');
+    const cursorSizeRange = document.getElementById('cursor-size');
+    const cursorSizeLabel = document.getElementById('cursor-size-label');
+
+    function regenerateScripts() {
+      for (const [name, item] of files) {
+        if (item._rawWorkflow) {
+          item.script = generateScript(item._rawWorkflow, delay, name, item.narrations, item.deletedMetaSteps);
+        }
+      }
+    }
+
+    function regenerateAll() {
+      regenerateScripts();
+      renderQueue();
+    }
+
+    cursorStyleSelect.addEventListener('change', e => {
+      cursorStyle = e.target.value;
+      regenerateScripts();
+    });
+
+    cursorSizeRange.addEventListener('input', e => {
+      cursorSize = parseInt(e.target.value);
+      cursorSizeLabel.textContent = cursorSize + 'px';
+      regenerateScripts();
+    });
+
+    // ── AI Timing Label Swap ─────────────────────────────────────────────────
+    const delayLabelEl = document.getElementById('delay-label');
+    const delayDescEl = document.getElementById('delay-desc');
+
+    aiTimingToggle.addEventListener('change', e => {
+      useAITiming = e.target.checked;
+      // Swap label/desc
+      if (useAITiming) {
+        delayLabelEl.textContent = 'VO Padding';
+        delayDescEl.textContent = 'Milliseconds of pause before & after each narration';
+      } else {
+        delayLabelEl.textContent = 'Step Delay';
+        delayDescEl.textContent = 'Base milliseconds between each node';
+      }
+      regenerateAll();
+    });
+  </script>
+</body>
+</html>

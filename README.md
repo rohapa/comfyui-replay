@@ -1,0 +1,68 @@
+# ComfyUI Workflow Replay Tools
+
+Automated tools for building ComfyUI workflows visually — perfect for screen recording tutorials.
+
+## Setup
+
+```bash
+npm install
+npx playwright install chromium
+```
+
+## Tools
+
+### 🎬 Cursor Replay (Playwright)
+
+Opens a real browser with a visible, animated cursor that builds the workflow step-by-step. Records video automatically.
+
+```bash
+# Basic usage (ComfyUI must be running)
+node cursor-replay.js my_workflow.json
+
+# With options
+node cursor-replay.js my_workflow.json \
+  --url http://localhost:8188 \
+  --delay 1000 \
+  --output ./recordings \
+  --viewport 1920x1080
+```
+
+**What happens:**
+1. Browser opens → canvas clears
+2. Cursor moves to each node position → double-clicks → searches type → adds node
+3. Cursor drags from output slots to input slots to create connections
+4. Video saved to `./recordings/`
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--url` | `http://127.0.0.1:8188` | ComfyUI URL |
+| `--delay` | `800` | ms between steps |
+| `--output` | `./recordings` | Video output dir |
+| `--viewport` | `1920x1080` | Browser size |
+| `--no-record` | - | Disable recording |
+| `--slow-mo` | `50` | Playwright slow-mo |
+
+---
+
+### 📋 Console Replay (No Browser Automation)
+
+Generates a JS script you paste into ComfyUI's browser console. No Playwright needed.
+
+```bash
+node workflow-replay.js my_workflow.json --output replay --delay 1000
+```
+
+Then paste the generated `replay.js` into ComfyUI's DevTools console.
+
+## How It Works
+
+1. **Parses** the workflow JSON (`nodes` + `links` arrays)
+2. **Topologically sorts** nodes so dependencies are created first
+3. **Generates** timed build steps (either Playwright actions or JS code)
+4. **Connects** nodes in dependency order
+
+## Prerequisites
+
+- **Node.js** ≥ 18
+- **ComfyUI** running locally (for cursor replay)
+- All required models/checkpoints installed in ComfyUI
