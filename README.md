@@ -6,6 +6,17 @@ Automated tools for building ComfyUI workflows visually — perfect for screen r
 
 https://github.com/user-attachments/assets/8c34f865-1a41-47b9-8eda-06cc0f81142c
 
+Camera Options
+Zoom-In/Out Example
+
+https://github.com/user-attachments/assets/9b6af309-b560-4d28-8e1c-6f606443ec92
+
+Custom Tutorial Notes
+![ReplayDirections](https://github.com/user-attachments/assets/01bd8931-039b-40ea-a681-cf826d13a13b)
+![ReplayNotes2](https://github.com/user-attachments/assets/a5b2fcbf-9f50-4ad4-9e29-f27d7d675ddc)
+
+
+
 ## Setup
 
 ```bash
