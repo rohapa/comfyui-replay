@@ -742,11 +742,22 @@
 
     <div class="option-row">
       <div class="option-meta">
-        <div class="option-label">Show Captions</div>
-        <div class="option-desc">Display narration text as an on-screen overlay during replay</div>
+        <div class="option-label">Show Node Labels</div>
+        <div class="option-desc">Show the node title as a small on-screen caption as it's created</div>
       </div>
       <label class="switch">
         <input type="checkbox" id="captions-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
+        <div class="option-label">Show VO Captions</div>
+        <div class="option-desc">Display the narration script text as on-screen captions</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="vo-captions-toggle">
         <span class="slider"></span>
       </label>
     </div>
@@ -828,6 +839,7 @@
     let showDebugLog = false;
     let useNodePanel = false;
     let showCaptions = false;
+    let showVOCaptions = false;
     let cursorStyle = 'macos';
     let cursorSize = 24;
 
@@ -932,6 +944,7 @@
   const CURSOR_STYLE = '${cursorStyle}';
   const CURSOR_SIZE = ${cursorSize};
   const SHOW_CAPTIONS = ${showCaptions};
+  const SHOW_VO_CAPTIONS = ${showVOCaptions};
   window.__replayStop = false;
 
   document.getElementById('__rc')?.remove();
@@ -1043,8 +1056,9 @@
     const r=document.createElement('div');Object.assign(r.style,{position:'fixed',left:cx+'px',top:cy+'px',width:'40px',height:'40px',borderRadius:'50%',border:'2px solid '+color,animation:'__rr .4s ease-out forwards',pointerEvents:'none'});
     ov.appendChild(r);setTimeout(()=>r.remove(),500);}
 
-  function label(text,dur){if(!SHOW_CAPTIONS)return;dur=dur||2000;const l=document.createElement('div');l.textContent=text;
-    Object.assign(l.style,{position:'fixed',left:(cx+30)+'px',top:(cy-10)+'px',background:'rgba(0,0,0,.8)',color:'#00d4ff',padding:'4px 10px',borderRadius:'6px',fontSize:'13px',fontFamily:'system-ui',fontWeight:'500',pointerEvents:'none',zIndex:'999999',whiteSpace:'nowrap',animation:'__rlb '+dur+'ms ease-in-out forwards'});
+  function label(text,dur,isVO){if(isVO){if(!SHOW_VO_CAPTIONS)return;}else{if(!SHOW_CAPTIONS)return;}
+    dur=dur||2000;const l=document.createElement('div');l.textContent=text;
+    Object.assign(l.style,{position:'fixed',left:(cx+30)+'px',top:(cy-10)+'px',background:'rgba(0,0,0,.8)',color:'#00d4ff',padding:'4px 10px',borderRadius:'6px',fontSize:'13px',fontFamily:'system-ui',fontWeight:'500',pointerEvents:'none',zIndex:'999999',whiteSpace:isVO?'normal':'nowrap',maxWidth:isVO?'300px':'none',animation:'__rlb '+dur+'ms ease-in-out forwards'});
     ov.appendChild(l);setTimeout(()=>l.remove(),dur);}
 
   async function typeInWidget(node,wi,text){
@@ -1275,7 +1289,7 @@
       if(nd.properties)Object.assign(created.properties,nd.properties);
       refs[nd.id]=created.id;app.canvas.setDirty(true,true);
     }
-    label(nd.title, (DLY + 500) * 0.5);
+    label(nd.title, (DLY + 500) * 0.5, false);
     let stepDly = DLY * 0.5;
 
     // AI Narration Timing — only apply speech-based delays when USE_AI_TIMING is on
@@ -1283,7 +1297,7 @@
       const msg = NARRATIONS[nd.id];
       const wordCount = msg.split(' ').length;
       const speechTime = (wordCount / 2.5) * 1000; // Average 150 WPM
-      label(msg, speechTime + 1000);
+      label(msg, speechTime + 1000, true);
       // DLY acts as padding: pause DLY before narration, wait speechTime, then DLY after
       await slp(DLY);
       stepDly = speechTime;
@@ -2361,6 +2375,12 @@
     const captionsToggle = document.getElementById('captions-toggle');
     captionsToggle.addEventListener('change', e => {
       showCaptions = e.target.checked;
+      regenerateScripts();
+    });
+
+    const voCaptionsToggle = document.getElementById('vo-captions-toggle');
+    voCaptionsToggle.addEventListener('change', e => {
+      showVOCaptions = e.target.checked;
       regenerateScripts();
     });
 
