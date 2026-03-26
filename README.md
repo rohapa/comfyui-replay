@@ -2,6 +2,12 @@
 
 Automated tools for building ComfyUI workflows visually — perfect for screen recording tutorials.
 
+![ComfyUI Replay Generator](assets/comfyui%20replay%20generator.png)
+
+https://github.com/user-attachments/assets/ReplayBot.mp4
+
+https://github.com/rohapa/comfy/raw/explore/screen-recording/assets/ReplayBot.mp4
+
 ## Setup
 
 ```bash
@@ -54,6 +60,22 @@ node workflow-replay.js my_workflow.json --output replay --delay 1000
 
 Then paste the generated `replay.js` into ComfyUI's DevTools console.
 
+---
+
+### 🎥 Screen Recording (ffmpeg)
+
+External ffmpeg-based screen recording for ComfyUI Desktop (Electron). Bypasses `getDisplayMedia` limitations.
+
+```bash
+# Terminal 1: Start the recording server
+npm run record
+
+# Terminal 2: Paste generated script into ComfyUI DevTools console
+# (with "Record Video" toggle enabled)
+```
+
+Records MP4 + generates FCPXML timeline for Premiere/Final Cut.
+
 ## How It Works
 
 1. **Parses** the workflow JSON (`nodes` + `links` arrays)
@@ -65,4 +87,5 @@ Then paste the generated `replay.js` into ComfyUI's DevTools console.
 
 - **Node.js** ≥ 18
 - **ComfyUI** running locally (for cursor replay)
+- **ffmpeg** installed (for screen recording: `brew install ffmpeg`)
 - All required models/checkpoints installed in ComfyUI
