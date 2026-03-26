@@ -4,7 +4,10 @@ Automated tools for building ComfyUI workflows visually — perfect for screen r
 
 ![ComfyUI Replay Generator](assets/comfyui%20replay%20generator.png)
 
-<video src="https://github.com/rohapa/comfyui-replay/raw/explore/screen-recording/assets/ReplayBot-sm.mp4" controls width="100%"></video>
+
+
+https://github.com/user-attachments/assets/8c34f865-1a41-47b9-8eda-06cc0f81142c
+
 
 ## Setup
 
