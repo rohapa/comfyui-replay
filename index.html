@@ -687,6 +687,17 @@
 
     <div class="option-row">
       <div class="option-meta">
+        <div class="option-label">Camera Zoom</div>
+        <div class="option-desc">Zoom in on nodes and connections to keep focus tight</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="camera-zoom-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="option-row">
+      <div class="option-meta">
         <div class="option-label">Record Video</div>
         <div class="option-desc">Prompt to screen-record the replay tab</div>
       </div>
@@ -833,6 +844,7 @@
     let activeImageMime = null;
     let useAITiming = false;
     let useCameraPan = true;
+    let useCameraZoom = false;
     let convertToMp4 = false;
     let exportXml = false;
     let recordVideo = false;
@@ -936,6 +948,7 @@
   const NARRATIONS = ${narrationsJson};
   const USE_AI_TIMING = ${useAITiming};
   const USE_CAMERA_PAN = ${useCameraPan};
+  const USE_CAMERA_ZOOM = ${useCameraZoom};
   const CONVERT_TO_MP4 = ${convertToMp4};
   const EXPORT_XML = ${exportXml};
   const RECORD_VIDEO = ${recordVideo};
@@ -1036,17 +1049,24 @@
     return{x:(cx2+ds.offset[0])*ds.scale+r.left,y:(cy2+ds.offset[1])*ds.scale+r.top};
   }
 
-  async function panTo(cvX,cvY,dur){
-    dur=dur||400;const margin=120,sc=c2s(cvX,cvY);const vw=window.innerWidth,vh=window.innerHeight;
-    if(sc.x>margin&&sc.x<vw-margin&&sc.y>margin&&sc.y<vh-margin)return;
-    const ds=app.canvas.ds;
-    const el=document.querySelector('canvas.graph-canvas-container')||document.querySelector('canvas#graph-canvas')||document.querySelector('canvas');
-    const rect=el?el.getBoundingClientRect():{left:0,top:0,width:vw,height:vh};
-    const nOX=(rect.width/2)/ds.scale-cvX,nOY=(rect.height/2)/ds.scale-cvY;
-    const sOX=ds.offset[0],sOY=ds.offset[1],steps=Math.max(20,Math.floor(dur/16));
-    for(let i=0;i<=steps;i++){if(window.__replayStop)return;const t=i/steps,ease=t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-      ds.offset[0]=sOX+(nOX-sOX)*ease;ds.offset[1]=sOY+(nOY-sOY)*ease;app.canvas.setDirty(true,true);await frm();}
+  async function cameraTo(cvX, cvY, targetScale, dur) {
+    dur = dur || 400; const ds = app.canvas.ds;
+    const sS = ds.scale, sOX = ds.offset[0], sOY = ds.offset[1];
+    const el = document.querySelector('canvas.graph-canvas-container') || document.querySelector('canvas#graph-canvas') || document.querySelector('canvas');
+    const rect = el ? el.getBoundingClientRect() : {width: window.innerWidth, height: window.innerHeight};
+    const nOX = (rect.width/2)/targetScale - cvX, nOY = (rect.height/2)/targetScale - cvY;
+    const steps = Math.max(20, Math.floor(dur/16));
+    for (let i = 0; i <= steps; i++) {
+      if (window.__replayStop) return;
+      const t = i / steps;
+      const ease = t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2, 3)/2;
+      if (Math.abs(targetScale - sS) > 0.001) ds.scale = sS + (targetScale - sS) * ease;
+      ds.offset[0] = sOX + (nOX - sOX) * ease;
+      ds.offset[1] = sOY + (nOY - sOY) * ease;
+      app.canvas.setDirty(true, true); await frm();
+    }
   }
+  async function panTo(cvX,cvY,dur){ await cameraTo(cvX, cvY, USE_CAMERA_ZOOM ? 1.3 : app.canvas.ds.scale, dur); }
 
   async function moveTo(tx,ty,dur){dur=dur||500;const fx=cx,fy=cy,steps=Math.max(30,Math.floor(dur/16));
     for(let i=0;i<=steps;i++){if(window.__replayStop)return;const t=i/steps,ease=t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
@@ -1326,6 +1346,7 @@
       await dragTo(ss.x,ss.y,ts.x,ts.y,600);await slp(50);
       sn.connect(lk.srcSlot,tn,lk.tgtSlot);app.canvas.setDirty(true,true);await slp(DLY*0.3);
     }
+    if (USE_CAMERA_ZOOM && USE_CAMERA_PAN) await cameraTo(nd.pos[0]+nd.size[0]/2, nd.pos[1]+nd.size[1]/2, 1.0, 500); // zoom back out after each node/link set
     await slp(stepDly * 0.5);
   }
 
@@ -2360,6 +2381,12 @@
         }
       }
       renderQueue();
+    });
+
+    const cameraZoomToggle = document.getElementById('camera-zoom-toggle');
+    cameraZoomToggle.addEventListener('change', e => {
+      useCameraZoom = e.target.checked;
+      regenerateAll();
     });
 
     nodePanelToggle.addEventListener('change', e => {
