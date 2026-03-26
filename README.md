@@ -52,6 +52,8 @@ node cursor-replay.js my_workflow.json \
 |--------|-------------|
 | **Show Node Labels** | Displays the node title as an on-screen caption when created |
 | **Show VO Captions** | Displays the AI narration script as on-screen captions |
+| **Camera Follow** | Auto-pans the canvas to follow the active node being built |
+| **Camera Zoom** | Zooms in/out on nodes and connections to keep focus tight |
 | **AI Voice Over Timing** | Automatically adjusts replay speed to match narration length |
 
 ### 📋 Console Replay (No Browser Automation)
