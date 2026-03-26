@@ -4,8 +4,6 @@ Automated tools for building ComfyUI workflows visually — perfect for screen r
 
 ![ComfyUI Replay Generator](assets/comfyui%20replay%20generator.png)
 
-<video src="https://github.com/rohapa/comfyui-replay/raw/explore/screen-recording/assets/ReplayBot-sm.mp4" controls width="100%"></video>
-
 ## Setup
 
 ```bash
@@ -47,6 +45,14 @@ node cursor-replay.js my_workflow.json \
 | `--slow-mo` | `50` | Playwright slow-mo |
 
 ---
+
+### UI Options (Web Generator)
+
+| Option | Description |
+|--------|-------------|
+| **Show Node Labels** | Displays the node title as an on-screen caption when created |
+| **Show VO Captions** | Displays the AI narration script as on-screen captions |
+| **AI Voice Over Timing** | Automatically adjusts replay speed to match narration length |
 
 ### 📋 Console Replay (No Browser Automation)
 
