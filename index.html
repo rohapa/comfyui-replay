@@ -206,7 +206,9 @@
     .option-row:last-child { border-bottom: none; }
     .option-label { font-size: 14px; font-weight: 500; }
     .option-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .option-tip { margin-left: 4px; cursor: help; position: relative; font-size: 13px; vertical-align: middle; }
+    .option-tip { margin-left: 4px; cursor: help; position: relative; display: inline-flex; vertical-align: middle; }
+    .option-tip svg { width: 14px; height: 14px; stroke: var(--muted); opacity: 0.5; transition: opacity 0.2s; }
+    .option-tip:hover svg { opacity: 1; stroke: var(--accent); }
     .option-tip::after { content: attr(data-tip); position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%); background: #1a1a2e; color: #e2e8f0; font-size: 11px; padding: 6px 10px; border-radius: 6px; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.2s; border: 1px solid #334155; box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 10; }
     .option-tip:hover::after { opacity: 1; }
 
@@ -724,7 +726,7 @@
       <div class="options-body">
     <div class="option-row">
       <div class="option-meta">
-        <div class="option-label">Record Video <span class="option-tip" data-tip="Requires: git clone repo → npm install → npm run record">⚙️</span></div>
+        <div class="option-label">Record Video <span class="option-tip" data-tip="Requires: git clone repo → npm install → npm run record"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span></div>
         <div class="option-desc">Prompt to screen-record the replay tab</div>
       </div>
       <label class="switch">
