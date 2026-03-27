@@ -162,6 +162,11 @@
       align-items: center;
       justify-content: space-between;
     }
+    .options-title ~ .options-title {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
     .btn-example {
       font-size: 11px;
       font-weight: 600;
@@ -699,7 +704,7 @@
       </label>
     </div>
 
-    <div class="options-title" style="margin-top:20px;">Video Options</div>
+    <div class="options-title">Video Options</div>
     <div class="option-row">
       <div class="option-meta">
         <div class="option-label">Record Video <span class="option-tip" data-tip="Requires: git clone repo → npm install → npm run record">⚙️</span></div>
@@ -733,7 +738,7 @@
       </label>
     </div>
 
-    <div class="options-title" style="margin-top:20px;">UI Options</div>
+    <div class="options-title">UI Options</div>
     <div class="option-row">
       <div class="option-meta">
         <div class="option-label">Use Node Panel</div>
@@ -756,7 +761,7 @@
       </label>
     </div>
 
-    <div class="options-title" style="margin-top:20px;">VO Options</div>
+    <div class="options-title">VO Options</div>
     <div class="option-row">
       <div class="option-meta">
         <div class="option-label">Show VO Captions</div>
@@ -779,7 +784,7 @@
       </label>
     </div>
 
-    <div class="options-title" style="margin-top:20px;">Debug Options</div>
+    <div class="options-title">Debug Options</div>
     <div class="option-row">
       <div class="option-meta">
         <div class="option-label">Show Debug Log</div>
@@ -791,7 +796,7 @@
       </label>
     </div>
 
-    <div class="options-title" style="margin-top:20px;">AI Settings (Optional)</div>
+    <div class="options-title">AI Settings (Optional)</div>
     <div class="ai-config-auto" id="config-auto-badge">
       ✅ Local config loaded — using <strong id="config-auto-provider">Google Gemini</strong>
     </div>
