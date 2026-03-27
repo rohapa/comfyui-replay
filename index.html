@@ -168,6 +168,7 @@
       border-top: 1px solid var(--border);
     }
     details.options-section { margin-top: 0; }
+    .option-row:has(+ details.options-section) { border-bottom: none; }
     details.options-section > summary {
       font-size: 13px; font-weight: 600; text-transform: uppercase;
       letter-spacing: 0.08em; color: var(--muted); padding: 16px 0 12px;
