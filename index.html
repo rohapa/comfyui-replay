@@ -625,12 +625,12 @@
     <button class="clear-image" id="clear-image">✕ Clear Image</button>
     <div id="drop-prompt">
       <span class="drop-icon">📁</span>
-      <div class="drop-title">Drop workflow JSON or screenshot here</div>
+      <div class="drop-title">Drop workflow JSON, replay script, or screenshot here</div>
       <p class="drop-sub">or <strong>click to browse</strong> — accepts <code>.json</code> workflows and images for AI narration</p>
     </div>
     <img id="image-preview" src="" alt="Workflow Preview" />
   </div>
-  <input type="file" id="file-input" accept=".json,image/*" multiple />
+  <input type="file" id="file-input" accept=".json,.js,image/*" multiple />
 
   <!-- Options -->
   <div class="options">
@@ -1435,6 +1435,59 @@
   }
 })();
       `.trim();
+    }
+
+    // ── Process Replay Script (.js) ─────────────────────────────────────────────
+    function processReplayScript(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const src = e.target.result;
+          // Extract NODES, LINKS, NARRATIONS from the generated script
+          const nodesMatch = src.match(/const NODES\s*=\s*(\[.*?\]);/s);
+          const linksMatch = src.match(/const LINKS\s*=\s*(\[.*?\]);/s);
+          const narrMatch = src.match(/const NARRATIONS\s*=\s*(\{.*?\});/s);
+          if (!nodesMatch) throw new Error('Could not find NODES in script');
+          if (!linksMatch) throw new Error('Could not find LINKS in script');
+          const nodes = JSON.parse(nodesMatch[1]);
+          const links = JSON.parse(linksMatch[1]);
+          const narrations = narrMatch ? JSON.parse(narrMatch[1]) : null;
+          if (nodes.length === 0) throw new Error('No nodes found in script');
+
+          // Reconstruct a ComfyUI-style workflow from the simplified NODES/LINKS
+          const workflow = {
+            nodes: nodes.map(n => ({
+              id: n.id, type: n.type, pos: n.pos, size: n.size,
+              title: n.title || n.type, flags: {}, order: 0, mode: 0,
+              inputs: [], outputs: [],
+              properties: n.properties || {},
+              widgets_values: n.widgets_values || []
+            })),
+            links: links.map((lk, i) => [
+              i + 1, lk.srcId, lk.srcSlot, lk.tgtId, lk.tgtSlot, '*'
+            ]),
+            groups: [], config: {}, extra: {}, version: 0.4
+          };
+
+          const displayName = file.name.replace('.js', '.json');
+          const script = generateScript(workflow, delay, displayName, narrations);
+          files.set(displayName, {
+            name: displayName,
+            script,
+            nodeCount: nodes.length,
+            linkCount: links.length,
+            narrations,
+            _rawWorkflow: workflow
+          });
+          activePreviewFile = displayName;
+          renderQueue();
+          showToast('📂 Replay script imported with ' + (narrations ? 'narrations' : 'no narrations') + '!');
+        } catch (err) {
+          console.error('Script import error:', err);
+          showToast('❌ Import failed: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
     }
 
     // ── Process File ───────────────────────────────────────────────────────────
@@ -2349,16 +2402,20 @@
 
     function handleDroppedFiles(fileList) {
       const jsonFiles = fileList.filter(f => f.name.endsWith('.json'));
+      const jsFiles = fileList.filter(f => f.name.endsWith('.js'));
       const imageFiles = fileList.filter(f => f.type.startsWith('image/'));
       if (jsonFiles.length > 0) {
         jsonFiles.forEach(f => processFile(f));
         showToast(`Processing ${jsonFiles.length} workflow${jsonFiles.length > 1 ? 's' : ''}...`);
       }
+      if (jsFiles.length > 0) {
+        jsFiles.forEach(f => processReplayScript(f));
+      }
       if (imageFiles.length > 0) {
         handleImage(imageFiles[0]);
       }
-      if (jsonFiles.length === 0 && imageFiles.length === 0) {
-        showToast('Drop .json workflows or image files');
+      if (jsonFiles.length === 0 && jsFiles.length === 0 && imageFiles.length === 0) {
+        showToast('Drop .json workflows, .js replay scripts, or image files');
       }
     }
 
