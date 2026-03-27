@@ -186,6 +186,7 @@
     .option-row:last-child { border-bottom: none; }
     .option-label { font-size: 14px; font-weight: 500; }
     .option-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .option-badge { font-size: 10px; color: #f59e0b; background: rgba(245,158,11,0.12); padding: 1px 6px; border-radius: 4px; margin-left: 6px; cursor: help; vertical-align: middle; }
 
     input[type="number"], input[type="range"], input[type="password"] {
       background: var(--surface2);
@@ -698,7 +699,7 @@
 
     <div class="option-row">
       <div class="option-meta">
-        <div class="option-label">Record Video</div>
+        <div class="option-label">Record Video <span class="option-badge" title="Requires cloning the repo and running 'npm run record' locally">⚙️ local</span></div>
         <div class="option-desc">Prompt to screen-record the replay tab</div>
       </div>
       <label class="switch">
@@ -709,7 +710,7 @@
 
     <div class="option-row">
       <div class="option-meta">
-        <div class="option-label">Convert to MP4</div>
+        <div class="option-label">Convert to MP4 <span class="option-badge" title="Requires cloning the repo and running 'npm run record' locally">⚙️ local</span></div>
         <div class="option-desc">Re-encode recording from WebM to MP4 (browser-side FFmpeg)</div>
       </div>
       <label class="switch">
@@ -720,7 +721,7 @@
 
     <div class="option-row">
       <div class="option-meta">
-        <div class="option-label">Export FCPXML</div>
+        <div class="option-label">Export FCPXML <span class="option-badge" title="Requires cloning the repo and running 'npm run record' locally">⚙️ local</span></div>
         <div class="option-desc">Generate an XML timeline with cuts for Premiere/Final Cut</div>
       </div>
       <label class="switch">
