@@ -168,16 +168,13 @@
       border-top: 1px solid var(--border);
     }
     details.options-section { margin-top: 0; }
-    details.options-section + details.options-section,
-    .option-row + details.options-section { margin-top: 0; }
     details.options-section > summary {
       font-size: 13px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.08em; color: var(--muted); padding: 20px 0 12px;
+      letter-spacing: 0.08em; color: var(--muted); padding: 16px 0 12px;
       cursor: pointer; list-style: none; display: flex; align-items: center;
       justify-content: space-between; border-top: 1px solid var(--border);
-      margin-top: 12px; user-select: none;
+      user-select: none;
     }
-    details.options-section:first-of-type > summary { border-top: 1px solid var(--border); }
     details.options-section > summary::-webkit-details-marker { display: none; }
     details.options-section > summary::after { content: '▸'; font-size: 12px; transition: transform 0.2s; }
     details.options-section[open] > summary::after { transform: rotate(90deg); }
@@ -1900,11 +1897,13 @@
 
       // Actions bar
       const hasKey = !!(aiKey || localConfig?.apiKey);
+      const isExample = fileName === 'example-workflow.json' || fileName === 'example-short.json';
+      const showAI = hasKey || isExample;
       const hasNarr = narrations && Object.keys(narrations).some(k => !k.startsWith('link_') && !k.startsWith('__'));
       html += `<div class="preview-actions">
         <button class="btn btn-gen-vo" onclick="autoGenNarrations('${fileName}')" title="Generate from node types (no API needed)" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#f59e0b,#d97706);"><i data-lucide="zap" style="width:14px;height:14px;margin-right:6px;"></i> Quick Script</button>
-        ${hasKey ? `<button class="btn btn-gen-vo" onclick="aiGenNarrations('${fileName}')" title="Use AI to write better narrations" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7c3aed,#ec4899);"><i data-lucide="bot" style="width:14px;height:14px;margin-right:6px;"></i> AI Script</button>` : ''}
-        ${hasKey ? `<button class="btn btn-gen-vo" onclick="aiGenConnNarrations('${fileName}')" title="Generate AI narrations for connection steps" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#059669,#0891b2);${hasNarr ? '' : 'opacity:0.35;pointer-events:none;'}"${hasNarr ? '' : ' disabled'}><i data-lucide="link" style="width:14px;height:14px;margin-right:6px;"></i> + Connections</button>` : ''}
+        ${showAI ? `<button class="btn btn-gen-vo" onclick="aiGenNarrations('${fileName}')" title="${isExample && !hasKey ? 'Load pre-written AI narrations' : 'Use AI to write better narrations'}" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#7c3aed,#ec4899);"><i data-lucide="bot" style="width:14px;height:14px;margin-right:6px;"></i> AI Script</button>` : ''}
+        ${showAI ? `<button class="btn btn-gen-vo" onclick="aiGenConnNarrations('${fileName}')" title="${isExample && !hasKey ? 'Load pre-written connection narrations' : 'Generate AI narrations for connection steps'}" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#059669,#0891b2);${hasNarr ? '' : 'opacity:0.35;pointer-events:none;'}"${hasNarr ? '' : ' disabled'}><i data-lucide="link" style="width:14px;height:14px;margin-right:6px;"></i> + Connections</button>` : ''}
         <button class="btn btn-gen-vo" onclick="exportVOScript('${fileName}')" title="Export VO script as .txt file" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#64748b,#475569);${hasNarr ? '' : 'opacity:0.35;pointer-events:none;'}"${hasNarr ? '' : ' disabled'}><i data-lucide="file-text" style="width:14px;height:14px;margin-right:6px;"></i> Export .txt</button>
         <span style="color:var(--muted);font-size:11px;margin-left:auto;padding-top:4px;">Total: ~${formatTime(cumTime)}</span>
       </div>`;
@@ -2084,7 +2083,20 @@
       const item = files.get(fileName);
       if (!item?._rawWorkflow) return;
       const key = aiKey || localConfig?.apiKey;
-      if (!key) { showToast('⚠️ No API key configured'); return; }
+      // Use fallback narrations for examples when no API key
+      const isExample = fileName === 'example-workflow.json' || fileName === 'example-short.json';
+      if (!key && !isExample) { showToast('⚠️ No API key configured'); return; }
+      if (!key && isExample) {
+        const fallback = fileName === 'example-short.json' ? EXAMPLE_SHORT_FALLBACK_NARRATIONS : EXAMPLE_FALLBACK_NARRATIONS;
+        const nodeNarrations = {};
+        Object.entries(fallback).forEach(([k, v]) => { if (!k.startsWith('link_')) nodeNarrations[k] = v; });
+        item.narrations = { ...(item.narrations || {}), ...nodeNarrations };
+        item.script = generateScript(item._rawWorkflow, delay, fileName, item.narrations, item.deletedMetaSteps);
+        activePreviewFile = fileName;
+        renderQueue();
+        showToast('✨ Pre-written AI narrations loaded!');
+        return;
+      }
       const workflow = item._rawWorkflow;
       const nodes = workflow.nodes || [];
       const links = workflow.links || [];
@@ -2106,7 +2118,19 @@
       const item = files.get(fileName);
       if (!item?._rawWorkflow) return;
       const key = aiKey || localConfig?.apiKey;
-      if (!key) { showToast('⚠️ No API key configured'); return; }
+      const isExample = fileName === 'example-workflow.json' || fileName === 'example-short.json';
+      if (!key && !isExample) { showToast('⚠️ No API key configured'); return; }
+      if (!key && isExample) {
+        const fallback = fileName === 'example-short.json' ? EXAMPLE_SHORT_FALLBACK_NARRATIONS : EXAMPLE_FALLBACK_NARRATIONS;
+        const connNarrations = {};
+        Object.entries(fallback).forEach(([k, v]) => { if (k.startsWith('link_')) connNarrations[k] = v; });
+        item.narrations = { ...(item.narrations || {}), ...connNarrations };
+        item.script = generateScript(item._rawWorkflow, delay, fileName, item.narrations, item.deletedMetaSteps);
+        activePreviewFile = fileName;
+        renderQueue();
+        showToast('🔗 Pre-written connection narrations loaded!');
+        return;
+      }
       const workflow = item._rawWorkflow;
       const nodes = workflow.nodes || [];
       const links = workflow.links || [];
