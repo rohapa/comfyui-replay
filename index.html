@@ -167,6 +167,21 @@
       padding-top: 20px;
       border-top: 1px solid var(--border);
     }
+    details.options-section { margin-top: 0; }
+    details.options-section + details.options-section,
+    .option-row + details.options-section { margin-top: 0; }
+    details.options-section > summary {
+      font-size: 13px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--muted); padding: 20px 0 12px;
+      cursor: pointer; list-style: none; display: flex; align-items: center;
+      justify-content: space-between; border-top: 1px solid var(--border);
+      margin-top: 12px; user-select: none;
+    }
+    details.options-section:first-of-type > summary { border-top: 1px solid var(--border); }
+    details.options-section > summary::-webkit-details-marker { display: none; }
+    details.options-section > summary::after { content: '▸'; font-size: 12px; transition: transform 0.2s; }
+    details.options-section[open] > summary::after { transform: rotate(90deg); }
+    details.options-section > .options-body { padding-bottom: 4px; }
     .btn-example {
       font-size: 11px;
       font-weight: 600;
@@ -704,7 +719,9 @@
       </label>
     </div>
 
-    <div class="options-title">Video Options</div>
+    <details class="options-section">
+      <summary>Video Options</summary>
+      <div class="options-body">
     <div class="option-row">
       <div class="option-meta">
         <div class="option-label">Record Video <span class="option-tip" data-tip="Requires: git clone repo → npm install → npm run record">⚙️</span></div>
@@ -737,8 +754,12 @@
         <span class="slider"></span>
       </label>
     </div>
+      </div>
+    </details>
 
-    <div class="options-title">UI Options</div>
+    <details class="options-section">
+      <summary>UI Options</summary>
+      <div class="options-body">
     <div class="option-row">
       <div class="option-meta">
         <div class="option-label">Use Node Panel</div>
@@ -760,8 +781,12 @@
         <span class="slider"></span>
       </label>
     </div>
+      </div>
+    </details>
 
-    <div class="options-title">VO Options</div>
+    <details class="options-section">
+      <summary>VO Options</summary>
+      <div class="options-body">
     <div class="option-row">
       <div class="option-meta">
         <div class="option-label">Show VO Captions</div>
@@ -783,8 +808,12 @@
         <span class="slider"></span>
       </label>
     </div>
+      </div>
+    </details>
 
-    <div class="options-title">Debug Options</div>
+    <details class="options-section">
+      <summary>Debug Options</summary>
+      <div class="options-body">
     <div class="option-row">
       <div class="option-meta">
         <div class="option-label">Show Debug Log</div>
@@ -795,8 +824,12 @@
         <span class="slider"></span>
       </label>
     </div>
+      </div>
+    </details>
 
-    <div class="options-title">AI Settings (Optional)</div>
+    <details class="options-section">
+      <summary>AI Settings (Optional)</summary>
+      <div class="options-body">
     <div class="ai-config-auto" id="config-auto-badge">
       ✅ Local config loaded — using <strong id="config-auto-provider">Google Gemini</strong>
     </div>
@@ -823,6 +856,8 @@
         <input type="password" id="ai-key" placeholder="Enter key..." />
       </div>
     </div>
+      </div>
+    </details>
   </div>
 
   <!-- Queue -->
