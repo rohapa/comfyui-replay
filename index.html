@@ -1964,21 +1964,7 @@
       const file = new File([blob], fileName, { type: 'application/json' });
       processFile(file);
 
-      // If no API key is configured, inject pre-baked narrations after processFile completes
-      if (!aiKey) {
-        const fallback = short ? EXAMPLE_SHORT_FALLBACK_NARRATIONS : EXAMPLE_FALLBACK_NARRATIONS;
-        setTimeout(() => {
-          const item = files.get(fileName);
-          if (item && !item.narrations) {
-            item.narrations = { ...fallback };
-            item.script = generateScript(item._rawWorkflow, delay, fileName, item.narrations, item.deletedMetaSteps);
-            renderQueue();
-            showToast('📂 Example workflow loaded with AI narrations!');
-          }
-        }, 100);
-      } else {
-        showToast('📂 Example workflow loaded!');
-      }
+      showToast('📂 Example workflow loaded!');
     };
 
     window.exportVOScript = (fileName) => {
